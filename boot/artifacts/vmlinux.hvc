@@ -1,0 +1,21 @@
+# The default configuration file for Gx.
+
+
+# Handle CPU_SPEED, STRIPE_MEMORY, OPTIONS, and CONFIG_VERSION.
+
+include options.hvh
+
+
+# Include all possible devices.
+
+include devices.hvh
+
+
+# Run vmlinux.
+
+ifndef ARGS
+define ARGS TLR_NETWORK=auto
+endif
+
+client vmlinux
+  args $ARGS $XARGS

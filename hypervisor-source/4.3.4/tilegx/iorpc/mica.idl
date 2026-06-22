@@ -1,0 +1,40 @@
+//
+// Copyright 2014 Tilera Corporation. All Rights Reserved.
+//
+//   The source code contained or described herein and all documents
+//   related to the source code ("Material") are owned by Tilera
+//   Corporation or its suppliers or licensors.  Title to the Material
+//   remains with Tilera Corporation or its suppliers and licensors. The
+//   software is licensed under the Tilera MDE License.
+//
+//   Unless otherwise agreed by Tilera in writing, you may not remove or
+//   alter this notice or any other notice embedded in Materials by Tilera
+//   or Tilera's suppliers or licensors in any way.
+//
+
+// Various parameters needed by the generator
+env prefix gxio_mica
+env hvarg mica_state_t* ms
+env hvarg int context_num
+env hvinclude tilegx/drivers/mica/mica.h
+env userinclude gxio/mica.h
+env linuxinclude gxio/mica.h
+env linuxinclude gxio/kiorpc.h
+
+
+code = 0x2000
+
+// Register a memory page (of any possible size) in the given IOTLB.
+// ISSUE: What is the actual alignment requirement?
+// ISSUE: Should we use "uint vpn"?
+int register_page_aux(MEM_BUFFER(ALIGN_64KB, FLAGS) page, uint64_t vpn);
+
+// Configure completion interrupt.
+int cfg_completion_interrupt(INTERRUPT intr);
+
+// Map all of a client's memory via the given IOTLB.
+nouser
+int register_client_memory(uint iotlb, HV_PTE pte, uint flags);
+
+// Unregister a memory page in the given IOTLB.
+int unregister_page_aux(MEM_UNREGISTER(ALIGN_64KB) page);

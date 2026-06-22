@@ -1,0 +1,69 @@
+//
+// Copyright 2014 Tilera Corporation. All Rights Reserved.
+//
+//   The source code contained or described herein and all documents
+//   related to the source code ("Material") are owned by Tilera
+//   Corporation or its suppliers or licensors.  Title to the Material
+//   remains with Tilera Corporation or its suppliers and licensors. The
+//   software is licensed under the Tilera MDE License.
+//
+//   Unless otherwise agreed by Tilera in writing, you may not remove or
+//   alter this notice or any other notice embedded in Materials by Tilera
+//   or Tilera's suppliers or licensors in any way.
+//
+
+// Various parameters needed by the generator
+env prefix gxio_gpio
+env hvarg gpio_state_t* gs
+env hvarg int svc_dom
+env hvinclude tilegx/drivers/gpio/gpio.h
+env userinclude gxio/gpio.h
+env linuxinclude gxio/gpio.h
+env linuxinclude gxio/kiorpc.h
+
+
+code = 0x1600
+
+// Add pins to the set we can use.
+int attach(uint64_t pin_mask);
+
+// Get pin input/output characteristics.
+read
+int get_dir(uint64_t* disabled_pins, uint64_t* input_pins,
+            uint64_t* output_pins, uint64_t* output_od_pins);
+
+// Set pin input/output characteristics.
+int set_dir(uint64_t disabled_pins, uint64_t input_pins,
+            uint64_t output_pins, uint64_t output_od_pins);
+
+// Get pin electrical characteristics.
+read
+int get_elec(OFFSET pin, GPIO_PAD_CONTROL_t* pad_ctl);
+
+// Set pin electrical characteristics.
+int set_elec(OFFSET pin, GPIO_PAD_CONTROL_t pad_ctl);
+
+// Get clock mode.
+read
+int get_gclk_mode(GPIO_GCLK_MODE_t* gclk_mode);
+
+// Set clock mode.
+int set_gclk_mode(GPIO_GCLK_MODE_t gclk_mode);
+
+// Configure interrupts.
+int cfg_interrupt(INTERRUPT inter, uint64_t on_assert, uint64_t on_deassert);
+
+// Configure interrupt with pollable file descriptor.
+int cfg_pollfd(POLLFD_SETUP inter, uint64_t on_assert, uint64_t on_deassert);
+
+// Translate a pinset name to an enumerate offset.  Returns the offset or a
+// negative error code.
+int get_pinset_aux(BLOB name);
+
+// Enumerate a pinset name and masks.  Returns an error code if index is
+// out of range.
+read
+int enumerate_pinset_aux(OFFSET idx,
+                         uint64_t* input_pins, uint64_t* output_pins,
+		         uint64_t* output_od_pins, uint64_t* inverted_pins,
+			 BLOB* name);

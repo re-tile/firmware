@@ -1,0 +1,1317 @@
+#!/bin/bash -ex
+
+# Run this script to create the corresponding source subdir in the CWD.
+
+me=$(basename $0)
+DIR=$(basename $0 .get)
+if [ -d $DIR ]; then
+    echo "$me: Cannot replace existing directory '$DIR'." >&2
+    exit 1
+fi
+
+# Original host http://reality.sgiweb.org/davea is apparently off the air.
+# HACK: The tarball is misnamed.
+MD5SUM=6ee5a2b70bf1b0da0c49b93fb4386081
+FROM=http://www.tilera.com/scm
+ORIG=lib$DIR.tar.gz
+
+if [ ! -f $ORIG ]; then
+    if [ -n "$DOWNLOAD_CACHE" -a -f "$DOWNLOAD_CACHE/$ORIG" ]; then
+        ORIG="$DOWNLOAD_CACHE/$ORIG"
+    else
+        curl -L $FROM/$ORIG > $ORIG.tmp
+        mv $ORIG.tmp $ORIG
+    fi
+fi
+
+if [ $MD5SUM != `md5sum $ORIG | cut -f1 -d' '` ]; then
+    echo "$me: Wrong md5sum for '$ORIG'." >&2
+    exit 1
+fi
+
+tar xf $ORIG
+
+cat $0 | patch -d $DIR -p1 -s
+
+exit 0
+
+# The actual Tilera patch starts here.
+
+diff -r -u --new-file dwarf-20051201/dwarfdump/Makefile.in tilera-dwarf/dwarfdump/Makefile.in
+--- dwarf-20051201/dwarfdump/Makefile.in	2005-12-01 12:39:31.000000000 -0500
++++ tilera-dwarf/dwarfdump/Makefile.in	2009-09-24 17:39:14.840048000 -0400
+@@ -3,7 +3,16 @@
+ #  This is made very simple so it should work with
+ #  any 'make'.
+ 
+-#
++# Tilera installs "libdwarf.so" and "libelf.so" in "$(INSTALL_DIR)/lib",
++# and installs "dwarfdump" in "$(INSTALL_DIR)/bin", and this directory
++# is built in "tools/libdwarf/host/dwarfdump/", so the caller must define
++# "RELATIVE_INSTALL_LIB_DIR_FROM_HERE".
++
++ifndef RELATIVE_INSTALL_LIB_DIR_FROM_HERE
++$(error Need definition for RELATIVE_INSTALL_LIB_DIR_FROM_HERE)
++endif
++
++RELATIVE_INSTALL_LIB_DIR_FROM_BIN = ../lib
+ 
+ srcdir =	@srcdir@
+ VPATH =		@srcdir@
+@@ -25,7 +34,7 @@
+ RM =		rm
+ RANLIB =	@RANLIB@
+ DEFS =		@DEFS@
+-LIBS =		@LIBS@ -L../libdwarf -ldwarf -lelf
++LIBS =		@LIBS@ -L$(RELATIVE_INSTALL_LIB_DIR_FROM_HERE) -ldwarf -lelf
+ INCLUDES =	-I. -I$(srcdir) -I$(srcdir)/../libdwarf
+ CFLAGS =	@CFLAGS@ $(INCLUDES)
+ LDFLAGS =	@LDFLAGS@  $(LIBS)
+@@ -62,7 +71,8 @@
+ 
+ 
+ dwarfdump: $(OBJECTS)
+-	$(CC) $(CFLAGS) -o $@ $(OBJECTS) $(LDFLAGS) 
++	$(CC) $(CFLAGS) -o $@ $(OBJECTS) \
++	  -Wl,-R'$$ORIGIN/$(RELATIVE_INSTALL_LIB_DIR_FROM_BIN)' $(LDFLAGS)
+ 
+ 
+ at_list.i: at_list.awk $(DIRINC)/dwarf.h
+@@ -71,7 +81,9 @@
+ #	 $(CC) $(CFLAGS) -c at_list.i -o $@
+ 
+ _tag_tree_table.c: tag_tree.list tag_tree.c $(DIRINC)/dwarf.h
+-	$(CC) $(CFLAGS)  $(LDFLAGS) -o tag_tree_build $(srcdir)/tag_tree.c
++	$(CC) $(CFLAGS) \
++	  -Wl,-R'$$ORIGIN/$(RELATIVE_INSTALL_LIB_DIR_FROM_HERE)' $(LDFLAGS) \
++	  -o tag_tree_build $(srcdir)/tag_tree.c
+ 	# gcc -E tag_tree.list does not work, so use a .c name
+ 	rm -f _tmp.c && ln -s $(srcdir)/tag_tree.list _tmp.c
+ 	$(CC) $(CFLAGS) -E _tmp.c \
+@@ -83,10 +95,12 @@
+ 	$(CC) $(CFLAGS) -c _tag_tree_table.c -o $@ 
+ 
+ _tag_attr_table.c: tag_attr.list tag_attr.c $(DIRINC)/dwarf.h
+-	$(CC) $(CFLAGS)  $(LDFLAGS) -o tag_attr_build $(srcdir)/tag_attr.c
++	$(CC) $(CFLAGS) \
++	  -Wl,-R'$$ORIGIN/$(RELATIVE_INSTALL_LIB_DIR_FROM_HERE)' $(LDFLAGS) \
++	  -o tag_attr_build $(srcdir)/tag_attr.c
+ 	# gcc -E tag_attr.list does not work, so use a .c name
+-	rm -f _tmp.c && ln -s $(srcdir)/tag_attr.list _tmp.c
+-	$(CC) $(CFLAGS)  -E _tmp.c \
++	rm -f _tmp2.c && ln -s $(srcdir)/tag_attr.list _tmp2.c
++	$(CC) $(CFLAGS)  -E _tmp2.c \
+ 		| awk '!/^#/ && !/^[ \t]*$$/' > ./tag_attr_build.tmp
+ 	./tag_attr_build <tag_attr_build.tmp > $@
+ 	rm -f tag_attr_build.tmp
+@@ -111,7 +125,8 @@
+ 	-rm -f $(man1dir)/dwarfdump.1
+ 
+ clean:
+-	rm -f *.o dwarfdump dwarf_names.h *~ _tag_attr_table.c _tag_tree_table.c dwarf_names.c
++	rm -f *~ *.o dwarfdump dwarf_names.h dwarf_names.c \
++	  _tag_attr_table.c _tag_tree_table.c
+ 
+ distclean: clean
+ 	rm -f config.log config.h config.cache config.status dwarf_names.c
+--- dwarf-20051201/dwarfdump/configure	2005-12-01 12:39:31.000000000 -0500
++++ tilera-dwarf/dwarfdump/configure	2009-09-24 17:39:14.871050000 -0400
+@@ -2780,8 +2780,6 @@
+ 
+ 
+ 
+-/* Define to 1 if the elf64_getehdr function is in libelf.a */
+-#undef HAVE_ELF64_GETEHDR
+ 
+ 
+ 
+diff -r -u --new-file dwarf-20051201/dwarfdump/configure.in tilera-dwarf/dwarfdump/configure.in
+--- dwarf-20051201/dwarfdump/configure.in	2005-12-01 12:39:31.000000000 -0500
++++ tilera-dwarf/dwarfdump/configure.in	2009-09-24 17:39:14.874047000 -0400
+@@ -10,8 +10,6 @@
+ dnl AC_ARFLAGS
+ 
+ 
+-/* Define to 1 if the elf64_getehdr function is in libelf.a */
+-#undef HAVE_ELF64_GETEHDR
+ 
+ 
+ 
+diff -r -u --new-file dwarf-20051201/dwarfdump/print_sections.c tilera-dwarf/dwarfdump/print_sections.c
+--- dwarf-20051201/dwarfdump/print_sections.c	2005-12-01 12:39:31.000000000 -0500
++++ tilera-dwarf/dwarfdump/print_sections.c	2009-09-24 17:39:14.967040000 -0400
+@@ -56,34 +56,16 @@
+                 Dwarf_Unsigned maxoff);
+ 
+ 
+-/* These are IRIX/MIPS register names. */
++/* These are Tile register names. */
+ 
+ static char *regnames[] = {
+-    "cfa", "r1/at", "r2/v0", "r3/v1",
+-    "r4/a0", "r5/a1", "r6/a2", "r7/a3",
+-    "r8/t0", "r9/t1", "r10/t2", "r11/t3",
+-    "r12/t4", "r13/t5", "r14/t6", "r15/t7",
+-    "r16/s0", "r17/s1", "r18/s2", "r19/s3",
+-    "r20/s4", "r21/s5", "r22/s6", "r23/s7",
+-    "r24/t8", "r25/t9", "r26/k0", "r27/k1",
+-    "r28/gp", "r29/sp", "r30/s8", "r31",
+-
+-    "$f0", "$f1",
+-    "$f2", "$f3",
+-    "$f4", "$f5",
+-    "$f6", "$f7",
+-    "$f8", "$f9",
+-    "$f10", "$f11",
+-    "$f12", "$f13",
+-    "$f14", "$f15",
+-    "$f16", "$f17",
+-    "$f18", "$f19",
+-    "$f20", "$f21",
+-    "$f22", "$f23",
+-    "$f24", "$f25",
+-    "$f26", "$f27",
+-    "$f28", "$f29",
+-    "$f30", "$f31",
++    "cfa",
++    "r0",  "r1",  "r2",  "r3",  "r4",  "r5",  "r6",  "r7",  "r8",  "r9", 
++    "r10", "r11", "r12", "r13", "r14", "r15", "r16", "r17", "r18", "r19", 
++    "r20", "r21", "r22", "r23", "r24", "r25", "r26", "r27", "r28", "r29", 
++    "r30", "r31", "r32", "r33", "r34", "r35", "r36", "r37", "r38", "r39", 
++    "r40", "r41", "r42", "r43", "r44", "r45", "r46", "r47", "r48", "r49", 
++    "r50", "r51", "r52", "tp",  "sp",  "lr",
+     "ra", "slk",
+ 
+ };
+diff -r -u --new-file dwarf-20051201/libdwarf/Makefile.in tilera-dwarf/libdwarf/Makefile.in
+--- dwarf-20051201/libdwarf/Makefile.in	2005-12-01 12:39:31.000000000 -0500
++++ tilera-dwarf/libdwarf/Makefile.in	2009-09-24 17:38:54.228289000 -0400
+@@ -94,6 +94,7 @@
+         pro_alloc.o \
+         pro_arange.o \
+         pro_die.o \
++	pro_eh_frame.o \
+ 	pro_encode_nm.o \
+         pro_error.o \
+         pro_expr.o \
+diff -r -u --new-file dwarf-20051201/libdwarf/dwarf.h tilera-dwarf/libdwarf/dwarf.h
+--- dwarf-20051201/libdwarf/dwarf.h	2005-12-01 12:39:32.000000000 -0500
++++ tilera-dwarf/libdwarf/dwarf.h	2009-09-24 17:38:54.276255000 -0400
+@@ -707,90 +707,76 @@
+ 
+ 
+ /* Mapping from machine registers and pseudo-regs into the .debug_frame table.
+-   DW_FRAME entries are machine specific. These describe
+-   MIPS/SGI R3000, R4K, R4400.
+-   And (simultaneously) a mapping from hardware register number to
+-   the number used in the table to identify that register.
+-
+-   The CFA (Canonical Frame Address) described in DWARF is called
+-   the Virtual Frame Pointer on MIPS/SGI machines.
+-
+-                             Rule describes:
+-*/
++ * DW_FRAME entries are machine specific. These describe the thunderbolt.
++ * And (simultaneously) a mapping from hardware register number to
++ * the number used in the table to identify that register.
++ */
+ #define DW_FRAME_CFA_COL 0  /* column used for CFA */
+-#define DW_FRAME_REG1   1  /* integer reg 1 */
+-#define DW_FRAME_REG2   2  /* integer reg 2 */
+-#define DW_FRAME_REG3   3  /* integer reg 3 */
+-#define DW_FRAME_REG4   4  /* integer reg 4 */
+-#define DW_FRAME_REG5   5  /* integer reg 5 */
+-#define DW_FRAME_REG6   6  /* integer reg 6 */
+-#define DW_FRAME_REG7   7  /* integer reg 7 */
+-#define DW_FRAME_REG8   8  /* integer reg 8 */
+-#define DW_FRAME_REG9   9  /* integer reg 9 */
+-#define DW_FRAME_REG10  10 /* integer reg 10 */
+-#define DW_FRAME_REG11  11 /* integer reg 11 */
+-#define DW_FRAME_REG12  12 /* integer reg 12 */
+-#define DW_FRAME_REG13  13 /* integer reg 13 */
+-#define DW_FRAME_REG14  14 /* integer reg 14 */
+-#define DW_FRAME_REG15  15 /* integer reg 15 */
+-#define DW_FRAME_REG16  16 /* integer reg 16 */
+-#define DW_FRAME_REG17  17 /* integer reg 17 */
+-#define DW_FRAME_REG18  18 /* integer reg 18 */
+-#define DW_FRAME_REG19  19 /* integer reg 19 */
+-#define DW_FRAME_REG20  20 /* integer reg 20 */
+-#define DW_FRAME_REG21  21 /* integer reg 21 */
+-#define DW_FRAME_REG22  22 /* integer reg 22 */
+-#define DW_FRAME_REG23  23 /* integer reg 23 */
+-#define DW_FRAME_REG24  24 /* integer reg 24 */
+-#define DW_FRAME_REG25  25 /* integer reg 25 */
+-#define DW_FRAME_REG26  26 /* integer reg 26 */
+-#define DW_FRAME_REG27  27 /* integer reg 27 */
+-#define DW_FRAME_REG28  28 /* integer reg 28 */
+-#define DW_FRAME_REG29  29 /* integer reg 29 */
+-#define DW_FRAME_REG30  30 /* integer reg 30 */
+-#define DW_FRAME_REG31  31 /* integer reg 31, aka ra */
+-
+-        /* MIPS1, 2 have only some of these 64-bit registers.
+-        ** MIPS1  save/restore takes 2 instructions per 64-bit reg, and
+-        ** in that case, the register is considered stored after the second
+-        ** swc1.
+-        */
+-#define DW_FRAME_FREG0  32 /* 64-bit floating point reg 0 */
+-#define DW_FRAME_FREG1  33 /* 64-bit floating point reg 1 */
+-#define DW_FRAME_FREG2  34 /* 64-bit floating point reg 2 */
+-#define DW_FRAME_FREG3  35 /* 64-bit floating point reg 3 */
+-#define DW_FRAME_FREG4  36 /* 64-bit floating point reg 4 */
+-#define DW_FRAME_FREG5  37 /* 64-bit floating point reg 5 */
+-#define DW_FRAME_FREG6  38 /* 64-bit floating point reg 6 */
+-#define DW_FRAME_FREG7  39 /* 64-bit floating point reg 7 */
+-#define DW_FRAME_FREG8  40 /* 64-bit floating point reg 8 */
+-#define DW_FRAME_FREG9  41 /* 64-bit floating point reg 9 */
+-#define DW_FRAME_FREG10 42 /* 64-bit floating point reg 10 */
+-#define DW_FRAME_FREG11 43 /* 64-bit floating point reg 11 */
+-#define DW_FRAME_FREG12 44 /* 64-bit floating point reg 12 */
+-#define DW_FRAME_FREG13 45 /* 64-bit floating point reg 13 */
+-#define DW_FRAME_FREG14 46 /* 64-bit floating point reg 14 */
+-#define DW_FRAME_FREG15 47 /* 64-bit floating point reg 15 */
+-#define DW_FRAME_FREG16 48 /* 64-bit floating point reg 16 */
+-#define DW_FRAME_FREG17 49 /* 64-bit floating point reg 17 */
+-#define DW_FRAME_FREG18 50 /* 64-bit floating point reg 18 */
+-#define DW_FRAME_FREG19 51 /* 64-bit floating point reg 19 */
+-#define DW_FRAME_FREG20 52 /* 64-bit floating point reg 20 */
+-#define DW_FRAME_FREG21 53 /* 64-bit floating point reg 21 */
+-#define DW_FRAME_FREG22 54 /* 64-bit floating point reg 22 */
+-#define DW_FRAME_FREG23 55 /* 64-bit floating point reg 23 */
+-#define DW_FRAME_FREG24 56 /* 64-bit floating point reg 24 */
+-#define DW_FRAME_FREG25 57 /* 64-bit floating point reg 25 */
+-#define DW_FRAME_FREG26 58 /* 64-bit floating point reg 26 */
+-#define DW_FRAME_FREG27 59 /* 64-bit floating point reg 27 */
+-#define DW_FRAME_FREG28 60 /* 64-bit floating point reg 28 */
+-#define DW_FRAME_FREG29 61 /* 64-bit floating point reg 29 */
+-#define DW_FRAME_FREG30 62 /* 64-bit floating point reg 30 */
+-#define DW_FRAME_FREG31 63 /* 64-bit floating point reg 31 */
++#define DW_FRAME_REG__0  1  /* integer reg  0 */
++#define DW_FRAME_REG__1  2  /* integer reg  1 */
++#define DW_FRAME_REG__2  3  /* integer reg  2 */
++#define DW_FRAME_REG__3  4  /* integer reg  3 */
++#define DW_FRAME_REG__4  5  /* integer reg  4 */
++#define DW_FRAME_REG__5  6  /* integer reg  5 */
++#define DW_FRAME_REG__6  7  /* integer reg  6 */
++#define DW_FRAME_REG__7  8  /* integer reg  7 */
++#define DW_FRAME_REG__8  9  /* integer reg  8 */
++#define DW_FRAME_REG__9 10  /* integer reg  9 */
++#define DW_FRAME_REG_10 11  /* integer reg 10 */
++#define DW_FRAME_REG_11 12  /* integer reg 11 */
++#define DW_FRAME_REG_12 13  /* integer reg 12 */
++#define DW_FRAME_REG_13 14  /* integer reg 13 */
++#define DW_FRAME_REG_14 15  /* integer reg 14 */
++#define DW_FRAME_REG_15 16  /* integer reg 15 */
++#define DW_FRAME_REG_16 17  /* integer reg 16 */
++#define DW_FRAME_REG_17 18  /* integer reg 17 */
++#define DW_FRAME_REG_18 19  /* integer reg 18 */
++#define DW_FRAME_REG_19 20  /* integer reg 19 */
++#define DW_FRAME_REG_20 21  /* integer reg 20 */
++#define DW_FRAME_REG_21 22  /* integer reg 21 */
++#define DW_FRAME_REG_22 23  /* integer reg 22 */
++#define DW_FRAME_REG_23 24  /* integer reg 23 */
++#define DW_FRAME_REG_24 25  /* integer reg 24 */
++#define DW_FRAME_REG_25 26  /* integer reg 25 */
++#define DW_FRAME_REG_26 27  /* integer reg 26 */
++#define DW_FRAME_REG_27 28  /* integer reg 27 */
++#define DW_FRAME_REG_28 29  /* integer reg 28 */
++#define DW_FRAME_REG_29 30  /* integer reg 29 */
++#define DW_FRAME_REG_30 31  /* integer reg 30 */
++#define DW_FRAME_REG_31 32  /* integer reg 31 */
++#define DW_FRAME_REG_32 33  /* integer reg 32 */
++#define DW_FRAME_REG_33 34  /* integer reg 33 */
++#define DW_FRAME_REG_34 35  /* integer reg 34 */
++#define DW_FRAME_REG_35 36  /* integer reg 35 */
++#define DW_FRAME_REG_36 37  /* integer reg 36 */
++#define DW_FRAME_REG_37 38  /* integer reg 37 */
++#define DW_FRAME_REG_38 39  /* integer reg 38 */
++#define DW_FRAME_REG_39 40  /* integer reg 39 */
++#define DW_FRAME_REG_40 41  /* integer reg 40 */
++#define DW_FRAME_REG_41 42  /* integer reg 41 */
++#define DW_FRAME_REG_42 43  /* integer reg 42 */
++#define DW_FRAME_REG_43 44  /* integer reg 43 */
++#define DW_FRAME_REG_44 45  /* integer reg 44 */
++#define DW_FRAME_REG_45 46  /* integer reg 45 */
++#define DW_FRAME_REG_46 47  /* integer reg 46 */
++#define DW_FRAME_REG_47 48  /* integer reg 47 */
++#define DW_FRAME_REG_48 49  /* integer reg 48 */
++#define DW_FRAME_REG_49 50  /* integer reg 49 */
++#define DW_FRAME_REG_50 51  /* integer reg 50 */
++#define DW_FRAME_REG_51 52  /* integer reg 51 */
++#define DW_FRAME_REG_52 53  /* integer reg 52 */
++#define DW_FRAME_REG_53 54  /* integer reg 53 */
++#define DW_FRAME_REG_54 55  /* integer reg 54 */
++#define DW_FRAME_REG_55 56  /* integer reg 55 */
++
++#define DW_FRAME_REG_TP 54  /* integer reg tp (53) */
++#define DW_FRAME_REG_SP 55  /* integer reg sp (54) */
++#define DW_FRAME_REG_LR 56  /* integer reg lr (55) */
++
+ 
+-#define DW_FRAME_RA_COL 64 /* column recording ra */
++#define DW_FRAME_RA_COL 57 /* column recording ra */
+ 
+-#define DW_FRAME_STATIC_LINK 65 /* column recording static link*/
++#define DW_FRAME_STATIC_LINK 58 /* column recording static link*/
+                                 /* applicable to up-level      */
+                                 /* addressing, as in mp code,  */
+                                 /* pascal, etc */
+diff -r -u --new-file dwarf-20051201/libdwarf/dwarf_line.h tilera-dwarf/libdwarf/dwarf_line.h
+--- dwarf-20051201/libdwarf/dwarf_line.h	2005-12-01 12:39:31.000000000 -0500
++++ tilera-dwarf/libdwarf/dwarf_line.h	2009-09-24 17:38:54.398142000 -0400
+@@ -174,8 +174,7 @@
+            */                                              \
+            if(opcode == DW_EXTENDED_OPCODE) {              \
+                 type = LOP_EXTENDED;                       \
+-           } else  if( (HIGHEST_STANDARD_OPCODE+1) >=      \
+-                        base) {                            \
++           } else  if( opcode <= HIGHEST_STANDARD_OPCODE) {\
+                 /* == Standard case: compile of            \
+                    dwarf_line.c and object                 \
+                    have same standard op codes set.        \
+diff -r -u --new-file dwarf-20051201/libdwarf/libdwarf.h tilera-dwarf/libdwarf/libdwarf.h
+--- dwarf-20051201/libdwarf/libdwarf.h	2005-12-01 12:39:32.000000000 -0500
++++ tilera-dwarf/libdwarf/libdwarf.h	2009-09-24 17:38:54.573960000 -0400
+@@ -141,7 +141,7 @@
+ /* DW_REG_TABLE_SIZE must reflect the number of registers 
+  *(DW_FRAME_LAST_REG_NUM) as defined in dwarf.h
+  */
+-#define DW_REG_TABLE_SIZE  66
++#define DW_REG_TABLE_SIZE  59
+ typedef struct {
+     struct {
+ 	Dwarf_Small         dw_offset_relevant;
+@@ -164,7 +164,9 @@
+                 dwarf_drt_first_of_length_pair,/* this and drt_second 
+ 				for .word end - begin
+ 			 	case */
+-                dwarf_drt_second_of_length_pair
++                dwarf_drt_second_of_length_pair,
++		dwarf_drt_data_self_relative_reloc,    /* relative to current pc */
++                dwarf_drt_segment_self_relative_reloc, /* special reloc, exceptions*/
+ };
+ typedef struct Dwarf_Relocation_Data_s  * Dwarf_Relocation_Data;
+ struct Dwarf_Relocation_Data_s {
+@@ -1463,6 +1465,15 @@
+     Dwarf_Unsigned 	/*init_byte_len*/, 
+     Dwarf_Error* 	/*error*/);
+ 
++Dwarf_Unsigned dwarf_add_frame_cie_pic(Dwarf_P_Debug /*dbg*/, 
++    char* 		/*augmenter*/, 
++    Dwarf_Small 	/*code_alignent_factor*/, 
++    Dwarf_Small 	/*data_alignment_factor*/, 
++    Dwarf_Small 	/*return_address_reg*/, 
++    Dwarf_Ptr 		/*initialization_bytes*/, 
++    Dwarf_Unsigned 	/*init_byte_len*/, 
++    Dwarf_Error* 	/*error*/);
++
+ Dwarf_Unsigned dwarf_add_frame_fde( 
+     Dwarf_P_Debug 	/*dbg*/,
+     Dwarf_P_Fde 	/*fde*/, 
+diff -r -u --new-file dwarf-20051201/libdwarf/pro_eh_frame.c tilera-dwarf/libdwarf/pro_eh_frame.c
+--- dwarf-20051201/libdwarf/pro_eh_frame.c	1969-12-31 19:00:00.000000000 -0500
++++ tilera-dwarf/libdwarf/pro_eh_frame.c	2009-09-24 17:38:54.674853000 -0400
+@@ -0,0 +1,526 @@
++/*
++
++  Copyright (C) 2000,2004 Silicon Graphics, Inc.  All Rights Reserved.
++
++  This program is free software; you can redistribute it and/or modify it
++  under the terms of version 2.1 of the GNU Lesser General Public License 
++  as published by the Free Software Foundation.
++
++  This program is distributed in the hope that it would be useful, but
++  WITHOUT ANY WARRANTY; without even the implied warranty of
++  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
++
++  Further, this software is distributed without any warranty that it is
++  free of the rightful claim of any third person regarding infringement 
++  or the like.  Any license provided herein, whether implied or 
++  otherwise, applies only to this software file.  Patent licenses, if
++  any, provided herein do not apply to combinations of this program with 
++  other software, or any other product whatsoever.  
++
++  You should have received a copy of the GNU Lesser General Public 
++  License along with this program; if not, write the Free Software 
++  Foundation, Inc., 59 Temple Place - Suite 330, Boston MA 02111-1307, 
++  USA.
++
++  Contact information:  Silicon Graphics, Inc., 1500 Crittenden Lane,
++  Mountain View, CA 94043, or:
++
++  http://www.sgi.com
++
++  For further information regarding this notice, see:
++
++  http://oss.sgi.com/projects/GenInfo/NoticeExplan
++
++*/
++
++
++
++#include "config.h"
++#include "libdwarfdefs.h"
++#include <stdio.h>
++#include <string.h>
++#ifdef   HAVE_ELFACCESS_H
++#include <elfaccess.h>
++#endif
++#include "pro_incl.h"
++#include "pro_section.h"
++#include "pro_line.h"
++#include "pro_frame.h"
++#include "pro_die.h"
++#include "pro_macinfo.h"
++#include "pro_types.h"
++
++#ifndef TRUE
++#define TRUE 1
++#endif
++#ifndef FALSE
++#define FALSE 0
++#endif
++
++/* Exception Handling encodings */
++#define DW_EH_PE_omit      0xff
++
++#define DW_EH_PE_uleb128   0x01
++#define DW_EH_PE_udata2    0x02
++#define DW_EH_PE_udata4    0x03
++#define DW_EH_PE_udata8    0x04
++#define DW_EH_PE_sleb128   0x09
++#define DW_EH_PE_sdata2    0x0a
++#define DW_EH_PE_sdata4    0x0b
++#define DW_EH_PE_sdata8    0x0c
++#define DW_EH_PE_signed    0x08
++
++#define DW_EH_PE_pcrel	   0x10
++#define DW_EH_PE_textrel   0x20
++#define DW_EH_PE_datarel   0x30
++#define DW_EH_PE_funcrel   0x40
++#define DW_EH_PE_aligned   0x50
++#define DW_EH_PE_indirect  0x80
++
++
++/* BEGIN_LEN_SIZE is the size of the 'length' field in total. 
++   Which may be 4,8, or 12 bytes! 
++   4 is standard DWARF2.
++   8 is non-standard MIPS-IRIX 64-bit.
++   12 is standard DWARF3 for 64 bit offsets.
++   Used in various routines: local variable names
++   must match the names here.
++*/
++#define BEGIN_LEN_SIZE (uwordb_size + extension_size)
++
++/*---------------------------------------------------------------
++	Generate eh_frame sections
++---------------------------------------------------------------*/
++int
++_dwarf_pro_generate_eh_frame(Dwarf_P_Debug dbg, Dwarf_Error * error)
++{
++    int elfsectno;
++    int i;
++    int firsttime = 1;
++    int pad;			/* pad for padding to align cies and
++				   fdes */
++    Dwarf_P_Cie curcie;
++    Dwarf_P_Fde curfde;
++    unsigned char *data;
++    Dwarf_sfixed dsw;
++    Dwarf_Unsigned du;
++    Dwarf_Ubyte db;
++    long *cie_offs;		/* holds byte offsets for links to
++				   fde's */
++    unsigned long cie_length;
++    int cie_no;
++    int uwordb_size = dbg->de_offset_size;
++    int extension_size = dbg->de_64bit_extension ? 4 : 0;
++    int upointer_size = dbg->de_pointer_size;
++    Dwarf_Unsigned cur_off;	/* current offset of written data, held
++                                   for relocation info */
++
++    elfsectno = dbg->de_elf_sects[EH_FRAME];
++
++    curcie = dbg->de_frame_cies;
++    cie_length = 0;
++    cur_off = 0;
++    cie_offs = (long *)
++	_dwarf_p_get_alloc(dbg, sizeof(long) * dbg->de_n_cie);
++    if (cie_offs == NULL) {
++	DWARF_P_DBG_ERROR(dbg, DW_DLE_CIE_OFFS_ALLOC, -1);
++    }
++    /* generate cie number as we go along */
++    cie_no = 1;
++    while (curcie) {
++	char *code_al;
++	int c_bytes;
++	char *data_al;
++	int d_bytes;
++	int res;
++	char buff1[ENCODE_SPACE_NEEDED];
++	char buff2[ENCODE_SPACE_NEEDED];
++	char buff3[ENCODE_SPACE_NEEDED];
++	char *augmented_al;
++	long augmented_fields_length;
++	int a_bytes = 0;
++
++	res = _dwarf_pro_encode_leb128_nm(curcie->cie_code_align,
++					  &c_bytes,
++					  buff1, sizeof(buff1));
++	if (res != DW_DLV_OK) {
++	    DWARF_P_DBG_ERROR(dbg, DW_DLE_CIE_OFFS_ALLOC, -1);
++	}
++	/* Before April 1999, the following was using an unsigned
++	   encode. That worked ok even though the decoder used the
++	   correct signed leb read, but doing the encode correctly
++	   (according to the dwarf spec) saves space in the output file 
++	   and is completely compatible.
++
++	   Note the actual stored amount on MIPS was 10 bytes (!) to
++	   store the value -4. (hex)fc ffffffff ffffffff 01 The
++	   libdwarf consumer consumed all 10 bytes too!
++
++	   old version res =
++	   _dwarf_pro_encode_leb128_nm(curcie->cie_data_align,
++
++	   below is corrected signed version. */
++	res = _dwarf_pro_encode_signed_leb128_nm(curcie->cie_data_align,
++						 &d_bytes,
++						 buff2, sizeof(buff2));
++	if (res != DW_DLV_OK) {
++	    DWARF_P_DBG_ERROR(dbg, DW_DLE_CIE_OFFS_ALLOC, -1);
++	}
++	code_al = buff1;
++	data_al = buff2;
++
++	/* get the correct offset */
++	if (firsttime) {
++	    cie_offs[cie_no - 1] = 0;
++	    firsttime = 0;
++	} else {
++	    cie_offs[cie_no - 1] = cie_offs[cie_no - 2] +
++		(long) cie_length + BEGIN_LEN_SIZE;
++	}
++	cie_no++;
++	const char *augmentation =
++          curcie->cie_pic ? DW_CIE_AUGMENTER_STRING_V0 "LR" : curcie->cie_aug;
++
++	if (curcie->cie_pic ||
++            strncmp(curcie->cie_aug, DW_CIE_AUGMENTER_STRING_V0,
++                    strlen(DW_CIE_AUGMENTER_STRING_V0)) == 0)
++        {
++            const char* p = augmentation + 1;
++            // FIXME: we don't handle all the cases; just the ones we use.
++            while (*p != '\0') {
++              switch (*p++) {
++              case 'L':
++              case 'R':
++                augmented_fields_length++;
++                break;
++              default:
++                break;
++              }
++            }
++	    res = _dwarf_pro_encode_leb128_nm(augmented_fields_length,
++					      &a_bytes, buff3,
++					      sizeof(buff3));
++	    if (res != DW_DLV_OK) {
++		DWARF_P_DBG_ERROR(dbg, DW_DLE_CIE_OFFS_ALLOC, -1);
++	    }
++
++            /* If pic, then use pc-relative addressing. */
++	    if (curcie->cie_pic)
++		buff3[a_bytes++] = curcie->cie_pic ?
++                    (DW_EH_PE_udata4 | DW_EH_PE_pcrel) : DW_EH_PE_udata4; 
++
++            if (strchr(augmentation, 'L') != NULL) {
++		buff3[a_bytes++] = curcie->cie_pic ?
++                    (DW_EH_PE_udata4 | DW_EH_PE_pcrel) : DW_EH_PE_udata4; 
++            }
++
++	    augmented_al = buff3;
++
++	    cie_length = uwordb_size +	/* cie_id */
++		sizeof(Dwarf_Ubyte) +	/* cie version */
++		strlen(augmentation) + 1 +	/* augmentation */
++		c_bytes +	/* code alignment factor */
++		d_bytes +	/* data alignment factor */
++		sizeof(Dwarf_Ubyte) +	/* return reg address */
++		a_bytes +	/* augmentation length */
++		curcie->cie_inst_bytes;
++	} else {
++	    cie_length = uwordb_size +	/* cie_id */
++		sizeof(Dwarf_Ubyte) +	/* cie version */
++		strlen(augmentation) + 1 +	/* augmentation */
++		c_bytes + d_bytes + sizeof(Dwarf_Ubyte) +	/* return 
++								   reg
++								   address 
++								 */
++		curcie->cie_inst_bytes;
++	}
++	pad = (int) PADDING(cie_length, upointer_size);
++	cie_length += pad;
++	GET_CHUNK(dbg, elfsectno, data, cie_length +
++		  BEGIN_LEN_SIZE, error);
++	if (extension_size) {
++	    Dwarf_Unsigned x = DISTINGUISHED_VALUE;
++
++	    WRITE_UNALIGNED(dbg, (void *) data,
++			    (const void *) &x,
++			    sizeof(x), extension_size);
++	    data += extension_size;
++	}
++	du = cie_length;
++	/* total length of cie */
++	WRITE_UNALIGNED(dbg, (void *) data,
++			(const void *) &du, sizeof(du), uwordb_size);
++	data += uwordb_size;
++
++	/* cie-id is a special value. */
++	du = 0;
++	WRITE_UNALIGNED(dbg, (void *) data, (const void *) &du,
++			sizeof(du), uwordb_size);
++	data += uwordb_size;
++
++	db = curcie->cie_version;
++	WRITE_UNALIGNED(dbg, (void *) data, (const void *) &db,
++			sizeof(db), sizeof(Dwarf_Ubyte));
++	data += sizeof(Dwarf_Ubyte);
++	strcpy((char *) data, augmentation);
++	data += strlen(augmentation) + 1;
++	memcpy((void *) data, (const void *) code_al, c_bytes);
++	data += c_bytes;
++	memcpy((void *) data, (const void *) data_al, d_bytes);
++	data += d_bytes;
++	db = curcie->cie_ret_reg;
++	WRITE_UNALIGNED(dbg, (void *) data, (const void *) &db,
++			sizeof(db), sizeof(Dwarf_Ubyte));
++	data += sizeof(Dwarf_Ubyte);
++
++	if (a_bytes > 0) {
++	    memcpy((void *) data, (const void *) augmented_al, a_bytes);
++	    data += a_bytes;
++	}
++	memcpy((void *) data, (const void *) curcie->cie_inst,
++	       curcie->cie_inst_bytes);
++	data += curcie->cie_inst_bytes;
++	for (i = 0; i < pad; i++) {
++	    *data = DW_CFA_nop;
++	    data++;
++	}
++	curcie = curcie->cie_next;
++    }
++    /* calculate current offset */
++    cur_off = cie_offs[cie_no - 2] + cie_length + BEGIN_LEN_SIZE;
++
++    /* write out fde's */
++    curfde = dbg->de_frame_fdes;
++    while (curfde) {
++	Dwarf_P_Frame_Pgm curinst;
++	long fde_length;
++	int pad;
++	Dwarf_P_Cie cie_ptr;
++	Dwarf_Word cie_index, index;
++	int oet_length, afl_length, res;
++	int v0_augmentation = 0;
++
++	unsigned char *fde_start_point;
++
++	char afl_buff[ENCODE_SPACE_NEEDED];
++
++	/* Find the CIE associated with this fde. */
++	cie_ptr = dbg->de_frame_cies;
++	cie_index = curfde->fde_cie;
++	index = 1;		/* The cie_index of the first cie is 1, 
++				   not 0. */
++	while (cie_ptr && index < cie_index) {
++	    cie_ptr = cie_ptr->cie_next;
++	    index++;
++	}
++	if (cie_ptr == NULL) {
++	    DWARF_P_DBG_ERROR(dbg, DW_DLE_CIE_NULL, -1);
++	}
++
++	if (cie_ptr->cie_pic ||
++            strcmp(cie_ptr->cie_aug, DW_CIE_AUGMENTER_STRING_V0) == 0)
++	{
++	    v0_augmentation = 1;
++
++	    oet_length = sizeof(Dwarf_sfixed);
++	    /* encode the length of augmented fields. */
++	    res = _dwarf_pro_encode_leb128_nm(oet_length,
++					      &afl_length, afl_buff,
++					      sizeof(afl_buff));
++	    if (res != DW_DLV_OK) {
++		DWARF_P_DBG_ERROR(dbg, DW_DLE_CIE_OFFS_ALLOC, -1);
++	    }
++
++	    fde_length = curfde->fde_n_bytes + uwordb_size +	/* cie
++								   pointer 
++								 */
++		upointer_size +	/* initial loc */
++		upointer_size +	/* address range */
++		afl_length +	/* augmented field length */
++		oet_length;	/* exception_table offset */
++	} else {
++	    fde_length = curfde->fde_n_bytes + uwordb_size +	/* cie
++								   pointer 
++								 */
++		upointer_size +	/* initial loc */
++		upointer_size;	/* address range */
++	}
++
++	/* using fde offset, generate DW_AT_MIPS_fde attribute for the 
++	   die corresponding to this fde */
++	if (_dwarf_pro_add_AT_fde(dbg, curfde->fde_die, cur_off, error)
++	    < 0)
++	    return -1;
++
++	/* store relocation information for initial location */
++	res = dbg->de_reloc_name(dbg, EH_FRAME,
++				 cur_off + BEGIN_LEN_SIZE +
++                                 upointer_size,
++                                 /* r_offset */
++				 curfde->fde_r_symidx,
++				 cie_ptr->cie_pic ?
++				     dwarf_drt_data_self_relative_reloc :
++				     dwarf_drt_data_reloc,
++				 upointer_size);
++
++	if (res != DW_DLV_OK) {
++	    DWARF_P_DBG_ERROR(dbg, DW_DLE_CHUNK_ALLOC, -1);
++	}
++	/* Store the relocation information for the
++	   offset_into_exception_info field, if the offset is valid (0 
++	   is a valid offset). */
++	if (v0_augmentation &&
++	    curfde->fde_offset_into_exception_tables >= 0) {
++
++	    res = dbg->de_reloc_name(dbg, EH_FRAME,
++				     /* r_offset, where in cie this
++				        field starts */
++				     cur_off + BEGIN_LEN_SIZE +
++                                     uwordb_size + 2 * upointer_size +
++                                     afl_length,
++				     curfde->fde_exception_table_symbol,
++				     cie_ptr->cie_pic ?
++					dwarf_drt_segment_self_relative_reloc :
++					dwarf_drt_segment_rel,
++				     sizeof(Dwarf_sfixed));
++	    if (res != DW_DLV_OK) {
++		DWARF_P_DBG_ERROR(dbg, DW_DLE_CHUNK_ALLOC, -1);
++	    }
++	}
++
++	/* adjust for padding */
++	pad = (int) PADDING(fde_length, upointer_size);
++	fde_length += pad;
++
++
++	/* write out fde */
++	GET_CHUNK(dbg, elfsectno, data, fde_length + BEGIN_LEN_SIZE,
++		  error);
++	fde_start_point = data;
++	du = fde_length;
++	{
++	    if (extension_size) {
++		Dwarf_Word x = DISTINGUISHED_VALUE;
++
++		WRITE_UNALIGNED(dbg, (void *) data,
++				(const void *) &x,
++				sizeof(x), extension_size);
++		data += extension_size;
++	    }
++	    /* length */
++	    WRITE_UNALIGNED(dbg, (void *) data,
++			    (const void *) &du,
++			    sizeof(du), uwordb_size);
++	    data += uwordb_size;
++
++	    /* offset to cie */
++	    du = cur_off + uwordb_size - cie_offs[curfde->fde_cie - 1];
++	    WRITE_UNALIGNED(dbg, (void *) data,
++			    (const void *) &du,
++			    sizeof(du), uwordb_size);
++	    data += uwordb_size;
++
++	    du = curfde->fde_initloc;
++	    WRITE_UNALIGNED(dbg, (void *) data,
++			    (const void *) &du,
++			    sizeof(du), upointer_size);
++	    data += upointer_size;
++
++	    if (dbg->de_reloc_pair &&
++		curfde->fde_end_symbol != 0 &&
++		curfde->fde_addr_range == 0) {
++		/* symbolic reloc, need reloc for length What if we
++		   really know the length? If so, should use the other
++		   part of 'if'. */
++		Dwarf_Unsigned val;
++
++		res = dbg->de_reloc_pair(dbg,
++					 /* DEBUG_ARANGES, */
++					 EH_FRAME, cur_off + BEGIN_LEN_SIZE +
++                                         uwordb_size + upointer_size,
++                                         /* r_offset */
++					 curfde->fde_r_symidx,
++					 curfde->fde_end_symbol,
++					 dwarf_drt_first_of_length_pair,
++					 upointer_size);
++		if (res != DW_DLV_OK) {
++		    {
++			_dwarf_p_error(dbg, error, DW_DLE_ALLOC_FAIL);
++			return (0);
++		    }
++		}
++
++		/* arrange pre-calc so assem text can do .word end -
++		   begin + val (gets val from stream) */
++		val = curfde->fde_end_symbol_offset -
++		    curfde->fde_initloc;
++		WRITE_UNALIGNED(dbg, data,
++				(const void *) &val,
++				sizeof(val), upointer_size);
++		data += upointer_size;
++	    } else {
++
++		du = curfde->fde_addr_range;
++		WRITE_UNALIGNED(dbg, (void *) data,
++				(const void *) &du,
++				sizeof(du), upointer_size);
++		data += upointer_size;
++	    }
++	}
++
++	if (v0_augmentation) {
++	    /* write the encoded augmented field length. */
++	    memcpy((void *) data, (const void *) afl_buff, afl_length);
++	    data += afl_length;
++	    /* write the offset_into_exception_tables field. */
++	    dsw =
++		(Dwarf_sfixed) curfde->fde_offset_into_exception_tables;
++	    WRITE_UNALIGNED(dbg, (void *) data, (const void *) &dsw,
++			    sizeof(dsw), sizeof(Dwarf_sfixed));
++	    data += sizeof(Dwarf_sfixed);
++	}
++
++	curinst = curfde->fde_inst;
++	while (curinst) {
++	    db = curinst->dfp_opcode;
++	    WRITE_UNALIGNED(dbg, (void *) data, (const void *) &db,
++			    sizeof(db), sizeof(Dwarf_Ubyte));
++	    data += sizeof(Dwarf_Ubyte);
++#if 0
++	    if (curinst->dfp_sym_index) {
++		int res;
++
++		res = dbg->de_reloc_name(dbg,
++					 EH_FRAME,
++					 (data - fde_start_point)
++					 + cur_off + uwordb_size,	/* r_offset 
++									 */
++					 curinst->dfp_sym_index,
++					 dwarf_drt_data_reloc,
++					 upointer_size);
++		if (res != DW_DLV_OK) {
++		    {
++			_dwarf_p_error(dbg, error, DW_DLE_ALLOC_FAIL);
++			return (0);
++		    }
++		}
++	    }
++#endif
++	    memcpy((void *) data,
++		   (const void *) curinst->dfp_args,
++		   curinst->dfp_nbytes);
++	    data += curinst->dfp_nbytes;
++	    curinst = curinst->dfp_next;
++	}
++	/* padding */
++	for (i = 0; i < pad; i++) {
++	    *data = DW_CFA_nop;
++	    data++;
++	}
++	cur_off += fde_length + BEGIN_LEN_SIZE;
++	curfde = curfde->fde_next;
++    }
++
++
++    return (int) dbg->de_n_debug_sect;
++}
+diff -r -u --new-file dwarf-20051201/libdwarf/pro_frame.c tilera-dwarf/libdwarf/pro_frame.c
+--- dwarf-20051201/libdwarf/pro_frame.c	2005-12-01 12:39:31.000000000 -0500
++++ tilera-dwarf/libdwarf/pro_frame.c	2009-09-24 17:38:54.701815000 -0400
+@@ -55,14 +55,16 @@
+ 	init_bytes: byts having initial instructions
+ 	init_n_bytes: number of bytes of initial instructions
+ --------------------------------------------------------------------------*/
+-Dwarf_Unsigned
+-dwarf_add_frame_cie(Dwarf_P_Debug dbg,
+-		    char *augmenter,
+-		    Dwarf_Small code_align,
+-		    Dwarf_Small data_align,
+-		    Dwarf_Small return_reg,
+-		    Dwarf_Ptr init_bytes,
+-		    Dwarf_Unsigned init_n_bytes, Dwarf_Error * error)
++static Dwarf_Unsigned
++_dwarf_add_frame_cie(Dwarf_P_Debug dbg,
++		     char *augmenter,
++		     Dwarf_Small code_align,
++		     Dwarf_Small data_align,
++		     Dwarf_Small return_reg,
++		     Dwarf_Ptr init_bytes,
++		     Dwarf_Unsigned init_n_bytes,
++                     Dwarf_Small pic,
++		     Dwarf_Error * error)
+ {
+     Dwarf_P_Cie curcie;
+ 
+@@ -88,6 +90,7 @@
+     }
+     curcie->cie_version = DW_CIE_VERSION;
+     curcie->cie_aug = augmenter;
++    curcie->cie_pic = pic;
+     curcie->cie_code_align = code_align;
+     curcie->cie_data_align = data_align;
+     curcie->cie_ret_reg = return_reg;
+@@ -97,6 +100,37 @@
+     return dbg->de_n_cie;
+ }
+ 
++Dwarf_Unsigned
++dwarf_add_frame_cie(Dwarf_P_Debug dbg,
++		    char *augmenter,
++		    Dwarf_Small code_align,
++		    Dwarf_Small data_align,
++		    Dwarf_Small return_reg,
++		    Dwarf_Ptr init_bytes,
++		    Dwarf_Unsigned init_n_bytes,
++		    Dwarf_Error * error)
++{
++  return _dwarf_add_frame_cie(dbg, augmenter, code_align, data_align,
++			      return_reg, init_bytes, init_n_bytes, 0,
++			      error);
++
++}
++
++Dwarf_Unsigned
++dwarf_add_frame_cie_pic(Dwarf_P_Debug dbg,
++		        char *augmenter,
++		        Dwarf_Small code_align,
++		        Dwarf_Small data_align,
++		        Dwarf_Small return_reg,
++		        Dwarf_Ptr init_bytes,
++		        Dwarf_Unsigned init_n_bytes,
++		        Dwarf_Error * error)
++{
++  return _dwarf_add_frame_cie(dbg, augmenter, code_align, data_align,
++			      return_reg, init_bytes, init_n_bytes, 1,
++			      error);
++
++}
+ 
+ /*-------------------------------------------------------------------------
+ 	This functions adds a fde struct to the debug pointer. Its in the
+diff -r -u --new-file dwarf-20051201/libdwarf/pro_frame.h tilera-dwarf/libdwarf/pro_frame.h
+--- dwarf-20051201/libdwarf/pro_frame.h	2005-12-01 12:39:32.000000000 -0500
++++ tilera-dwarf/libdwarf/pro_frame.h	2009-09-24 17:38:54.704824000 -0400
+@@ -72,6 +72,7 @@
+     long cie_inst_bytes;
+     /* no of init_inst */
+     Dwarf_P_Cie cie_next;
++    Dwarf_Ubyte cie_pic;	/* indicate if pic code */
+ };
+ 
+ 
+diff -r -u --new-file dwarf-20051201/libdwarf/pro_opaque.h tilera-dwarf/libdwarf/pro_opaque.h
+--- dwarf-20051201/libdwarf/pro_opaque.h	2005-12-01 12:39:32.000000000 -0500
++++ tilera-dwarf/libdwarf/pro_opaque.h	2009-09-24 17:38:54.785777000 -0400
+@@ -141,10 +141,11 @@
+ #define         DEBUG_VARNAMES  9
+ #define         DEBUG_WEAKNAMES 10
+ #define         DEBUG_MACINFO   11
+-#define         DEBUG_LOC   12
++#define         DEBUG_LOC       12
++#define         EH_FRAME        13
+ 
+     /* number of debug_* sections not including the relocations */
+-#define         NUM_DEBUG_SECTIONS      DEBUG_LOC + 1
++#define         NUM_DEBUG_SECTIONS      EH_FRAME + 1
+ 
+ 
+ struct Dwarf_P_Die_s {
+diff -r -u --new-file dwarf-20051201/libdwarf/pro_section.c tilera-dwarf/libdwarf/pro_section.c
+--- dwarf-20051201/libdwarf/pro_section.c	2005-12-01 12:39:31.000000000 -0500
++++ tilera-dwarf/libdwarf/pro_section.c	2009-09-24 17:38:54.805722000 -0400
+@@ -81,7 +81,8 @@
+     ".rel.debug_varnames",	/* sgi extension */
+     ".rel.debug_weaknames",	/* sgi extension */
+     ".rel.debug_macinfo",
+-    ".rel.debug_loc"
++    ".rel.debug_loc",
++    ".rel.eh_frame",
+ };
+ 
+ /* names of sections. Ensure that it matches the defines 
+@@ -101,7 +102,8 @@
+     ".debug_varnames",		/* sgi extension */
+     ".debug_weaknames",		/* sgi extension */
+     ".debug_macinfo",
+-    ".debug_loc"
++    ".debug_loc",
++    ".eh_frame",
+ };
+ 
+ 
+@@ -152,6 +154,15 @@
+ static int _dwarf_pro_get_opc(Dwarf_Unsigned addr_adv, int line_adv);
+ 
+ 
++/* BEGIN_LEN_SIZE is the size of the 'length' field in total. 
++   Which may be 4,8, or 12 bytes! 
++   4 is standard DWARF2.
++   8 is non-standard MIPS-IRIX 64-bit.
++   12 is standard DWARF3 for 64 bit offsets.
++   Used in various routines: local variable names
++   must match the names here.
++*/
++#define BEGIN_LEN_SIZE (uwordb_size + extension_size)
+ 
+ /*
+ 	Return TRUE if we need the section, FALSE otherwise
+@@ -266,9 +277,16 @@
+ 	    if (dbg->de_first_macinfo == NULL)
+ 		continue;
+ 	    break;
++
+ 	case DEBUG_LOC:
+ 	    /* not handled yet */
+ 	    continue;
++
++	case EH_FRAME:
++	    if (dbg->de_frame_cies == NULL)
++		continue;
++	    break;
++
+ 	default:
+ 	    /* logic error: missing a case */
+ 	    DWARF_P_DBG_ERROR(dbg, DW_DLE_ELF_SECT_ERR, DW_DLV_NOCOUNT);
+@@ -323,6 +341,7 @@
+ 			      DW_DLV_NOCOUNT);
+ 	}
+     }
++
+     if (dbg->de_first_macinfo) {
+ 	nbufs = _dwarf_pro_transform_macro_info_to_disk(dbg, error);
+ 	if (nbufs < 0) {
+@@ -406,6 +425,14 @@
+ 	}
+     }
+ 
++    if (dbg->de_frame_cies) {
++	nbufs = _dwarf_pro_generate_eh_frame(dbg, error);
++	if (nbufs < 0) {
++	    DWARF_P_DBG_ERROR(dbg, DW_DLE_DEBUGFRAME_ERROR,
++			      DW_DLV_NOCOUNT);
++	}
++    }
++
+     {
+ 	Dwarf_Signed new_secs;
+ 	int res;
+@@ -475,9 +502,8 @@
+     prolog_size++;		/* last null byte */
+ 
+ 
+-    prolog_size += extension_size +	/* DISTINGUISHED VALUE */
+-	sizeof_uhalf(dbg) +	/* version # */
+-	uwordb_size +		/* prologue length */
++    prolog_size += BEGIN_LEN_SIZE + sizeof_uhalf(dbg) + /* version # */
++        uwordb_size +           /* header length */
+ 	sizeof_ubyte(dbg) +	/* min_instr length */
+ 	sizeof_ubyte(dbg) +	/* default is_stmt */
+ 	sizeof_ubyte(dbg) +	/* linebase */
+@@ -486,7 +512,6 @@
+ 
+     /* length of table specifying # of opnds */
+     prolog_size += sizeof(std_opcode_len);
+-    prolog_size += uwordb_size;	/* for total length field */
+ 
+     GET_CHUNK(dbg, elfsectno, data, prolog_size, error);
+     start_line_sec = data;
+@@ -511,8 +536,9 @@
+ 		    sizeof(dh), sizeof(Dwarf_Half));
+     data += sizeof(Dwarf_Half);
+ 
+-    /* prologue length */
+-    du = prolog_size - (uwordb_size + sizeof(Dwarf_Half) + uwordb_size);
++    /* header length */
++    du = prolog_size - (BEGIN_LEN_SIZE + sizeof(Dwarf_Half) +
++                        uwordb_size);
+     {
+ 	WRITE_UNALIGNED(dbg, (void *) data, (const void *) &du,
+ 			sizeof(du), uwordb_size);
+@@ -860,9 +886,7 @@
+     }
+ 
+     /* write total length field */
+-    du = sum_bytes - uwordb_size - extension_size;	/* subtract
+-							   length field 
+-							 */
++    du = sum_bytes - BEGIN_LEN_SIZE;
+     {
+ 	start_line_sec += extension_size;
+ 	WRITE_UNALIGNED(dbg, (void *) start_line_sec,
+@@ -960,7 +984,7 @@
+ 	    firsttime = 0;
+ 	} else {
+ 	    cie_offs[cie_no - 1] = cie_offs[cie_no - 2] +
+-		(long) cie_length + uwordb_size + extension_size;
++		(long) cie_length + BEGIN_LEN_SIZE;
+ 	}
+ 	cie_no++;
+ 	augmentation = curcie->cie_aug;
+@@ -973,6 +997,7 @@
+ 	    if (res != DW_DLV_OK) {
+ 		DWARF_P_DBG_ERROR(dbg, DW_DLE_CIE_OFFS_ALLOC, -1);
+ 	    }
++
+ 	    cie_length = uwordb_size +	/* cie_id */
+ 		sizeof(Dwarf_Ubyte) +	/* cie version */
+ 		strlen(curcie->cie_aug) + 1 +	/* augmentation */
+@@ -993,8 +1018,8 @@
+ 	}
+ 	pad = (int) PADDING(cie_length, upointer_size);
+ 	cie_length += pad;
+-	GET_CHUNK(dbg, elfsectno, data, cie_length + uwordb_size
+-		  + extension_size, error);
++	GET_CHUNK(dbg, elfsectno, data, cie_length +
++		  BEGIN_LEN_SIZE, error);
+ 	if (extension_size) {
+ 	    Dwarf_Unsigned x = DISTINGUISHED_VALUE;
+ 
+@@ -1002,7 +1027,6 @@
+ 			    (const void *) &x,
+ 			    sizeof(x), extension_size);
+ 	    data += extension_size;
+-
+ 	}
+ 	du = cie_length;
+ 	/* total length of cie */
+@@ -1045,8 +1069,7 @@
+ 	curcie = curcie->cie_next;
+     }
+     /* calculate current offset */
+-    cur_off = cie_offs[cie_no - 2] + cie_length + uwordb_size
+-	+ extension_size;
++    cur_off = cie_offs[cie_no - 2] + cie_length + BEGIN_LEN_SIZE;
+ 
+     /* write out fde's */
+     curfde = dbg->de_frame_fdes;
+@@ -1111,8 +1134,9 @@
+ 	    return -1;
+ 
+ 	/* store relocation for cie pointer */
+-	res = dbg->de_reloc_name(dbg, DEBUG_FRAME, cur_off + uwordb_size,	/* r_offset 
+-										 */
++	res = dbg->de_reloc_name(dbg, DEBUG_FRAME, cur_off +
++                                 BEGIN_LEN_SIZE,
++                                 /* r_offset */
+ 				 dbg->de_sect_name_idx[DEBUG_FRAME],
+ 				 dwarf_drt_data_reloc, uwordb_size);
+ 	if (res != DW_DLV_OK) {
+@@ -1120,8 +1144,10 @@
+ 	}
+ 
+ 	/* store relocation information for initial location */
+-	res = dbg->de_reloc_name(dbg, DEBUG_FRAME, cur_off + uwordb_size + upointer_size,	/* r_offset 
+-												 */
++	res = dbg->de_reloc_name(dbg, DEBUG_FRAME,
++                                 cur_off + BEGIN_LEN_SIZE +
++                                 upointer_size,
++                                 /* r_offset */
+ 				 curfde->fde_r_symidx,
+ 				 dwarf_drt_data_reloc, upointer_size);
+ 	if (res != DW_DLV_OK) {
+@@ -1136,8 +1162,9 @@
+ 	    res = dbg->de_reloc_name(dbg, DEBUG_FRAME,
+ 				     /* r_offset, where in cie this
+ 				        field starts */
+-				     cur_off + 2 * uwordb_size +
+-				     2 * upointer_size + afl_length,
++				     cur_off + BEGIN_LEN_SIZE +
++                                     uwordb_size + 2 * upointer_size +
++                                     afl_length,
+ 				     curfde->fde_exception_table_symbol,
+ 				     dwarf_drt_segment_rel,
+ 				     sizeof(Dwarf_sfixed));
+@@ -1152,8 +1179,8 @@
+ 
+ 
+ 	/* write out fde */
+-	GET_CHUNK(dbg, elfsectno, data, fde_length + uwordb_size +
+-		  extension_size, error);
++	GET_CHUNK(dbg, elfsectno, data, fde_length + BEGIN_LEN_SIZE,
++		  error);
+ #if 0
+ 	fde_start_point = data;
+ #endif
+@@ -1175,6 +1202,7 @@
+ 
+ 	    /* offset to cie */
+ 	    du = cie_offs[curfde->fde_cie - 1];
++
+ 	    WRITE_UNALIGNED(dbg, (void *) data,
+ 			    (const void *) &du,
+ 			    sizeof(du), uwordb_size);
+@@ -1196,8 +1224,9 @@
+ 
+ 		res = dbg->de_reloc_pair(dbg,
+ 					 /* DEBUG_ARANGES, */
+-					 DEBUG_FRAME, cur_off + 2 * uwordb_size + upointer_size,	/* r_offset 
+-													 */
++					 DEBUG_FRAME, cur_off + BEGIN_LEN_SIZE +
++                                         uwordb_size + upointer_size,
++                                         /* r_offset */
+ 					 curfde->fde_r_symidx,
+ 					 curfde->fde_end_symbol,
+ 					 dwarf_drt_first_of_length_pair,
+@@ -1276,7 +1305,7 @@
+ 	    *data = DW_CFA_nop;
+ 	    data++;
+ 	}
+-	cur_off += fde_length + uwordb_size;
++	cur_off += fde_length + BEGIN_LEN_SIZE;
+ 	curfde = curfde->fde_next;
+     }
+ 
+diff -r -u --new-file dwarf-20051201/libdwarf/pro_section.h tilera-dwarf/libdwarf/pro_section.h
+--- dwarf-20051201/libdwarf/pro_section.h	2005-12-01 12:39:32.000000000 -0500
++++ tilera-dwarf/libdwarf/pro_section.h	2009-09-24 17:38:54.806760000 -0400
+@@ -102,6 +102,11 @@
+   _dwarf_transform_arange_to_disk(Dwarf_P_Debug dbg,
+ 				  Dwarf_Error * error);
+ 
++/* Add support for generating .eh_frames */
++int
++_dwarf_pro_generate_eh_frame(Dwarf_P_Debug dbg,
++                             Dwarf_Error * error);
++
+ /* These are for creating ELF section type codes.
+ */
+ #if defined(linux) || defined(__BEOS__) || !defined(SHT_MIPS_DWARF)
+diff -r -u --new-file dwarf-20051201/libdwarf/pro_util.h tilera-dwarf/libdwarf/pro_util.h
+--- dwarf-20051201/libdwarf/pro_util.h	2005-12-01 12:39:32.000000000 -0500
++++ tilera-dwarf/libdwarf/pro_util.h	2009-09-24 17:38:54.812760000 -0400
+@@ -111,7 +111,11 @@
+ 				DWARF_PRO_R_IA64_SEGREL32LSB : R_MIPS_SCN_DISP)
+ #else /* HAVE_SYS_IA64_ELF_H */
+ 
+-#if !defined(linux) && !defined(__BEOS__)
++#ifdef TARG_THUNDER
++#define Get_REL32_isa(dbg)      (R_TILEPRO_32)
++#define Get_REL64_isa(dbg)      (R_TILEPRO_32) /* irrelevant placeholder */
++#define Get_REL_SEGREL_isa(dbg) (R_TILEPRO_32) /* irrelevant placeholder */
++#elif !defined(linux) && !defined(__BEOS__)
+ #define Get_REL64_isa(dbg)         (R_MIPS_64)
+ #define Get_REL32_isa(dbg)         (R_MIPS_32)
+ #define Get_REL_SEGREL_isa(dbg)    (R_MIPS_SCN_DISP)

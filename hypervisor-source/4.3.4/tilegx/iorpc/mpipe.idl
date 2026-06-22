@@ -1,0 +1,171 @@
+//
+// Copyright 2014 Tilera Corporation. All Rights Reserved.
+//
+//   The source code contained or described herein and all documents
+//   related to the source code ("Material") are owned by Tilera
+//   Corporation or its suppliers or licensors.  Title to the Material
+//   remains with Tilera Corporation or its suppliers and licensors. The
+//   software is licensed under the Tilera MDE License.
+//
+//   Unless otherwise agreed by Tilera in writing, you may not remove or
+//   alter this notice or any other notice embedded in Materials by Tilera
+//   or Tilera's suppliers or licensors in any way.
+//
+
+// Various parameters needed by the generator
+env prefix gxio_mpipe
+env hvarg mpipe_state_t* ms
+env hvarg int svc_dom
+env allinclude hv/drv_mpipe_intf.h
+env hvinclude tilegx/drivers/mpipe/mpipe.h
+env userinclude gxio/mpipe.h
+env linuxinclude asm/page.h
+env linuxinclude gxio/kiorpc.h
+env linuxinclude gxio/mpipe.h
+
+
+code = 0x1200
+
+
+// Allocate buffer stacks.
+int alloc_buffer_stacks_aux(uint count, uint first, uint flags);
+
+// Initialize buffer stack parameters.
+int init_buffer_stack_aux(MEM_BUFFER(ALIGN_64KB, FLAGS) mem,
+                          uint stack, uint buffer_size_enum);
+
+// Register a memory page (of any possible size) in the given IOTLB.
+nokernel
+int register_page_aux(MEM_BUFFER(ALIGN_4KB, ALIGN_SELF_SIZE, FLAGS) page,
+                      uint stack, uint64_t vpn);
+
+
+// Allocate NotifRings.
+int alloc_notif_rings(uint count, uint first, uint flags);
+
+// Initialize NotifRing.
+int init_notif_ring_aux(MEM_BUFFER(ALIGN_4KB, ALIGN_SELF_SIZE, FLAGS) mem,
+                        uint ring);
+
+// Request interrupt on incoming NotifRing traffic.
+int request_notif_ring_interrupt(INTERRUPT inter, uint ring);
+
+// Enable interrupt on incoming NotifRing traffic.
+int enable_notif_ring_interrupt(uint ring);
+
+
+// Allocate NotifGroups.
+int alloc_notif_groups(uint count, uint first, uint flags);
+
+// Set a NotifGroup.
+int init_notif_group(uint group, gxio_mpipe_notif_group_bits_t bits);
+
+
+// Allocate buckets.
+int alloc_buckets(uint count, uint first, uint flags);
+
+// Set a bucket.
+int init_bucket(uint bucket, MPIPE_LBL_INIT_DAT_BSTS_TBL_t bucket_info);
+
+
+// Allocate eDMA rings.
+int alloc_edma_rings(uint count, uint first, uint flags);
+
+// Initialize eDMA ring.
+int init_edma_ring_aux(MEM_BUFFER(ALIGN_4KB, ALIGN_SELF_SIZE, FLAGS) mem,
+                       uint ring, uint channel);
+
+
+// Load a classifier binary from some bytes.
+nokernel
+int classifier_load_from_bytes(BLOB blob);
+
+// Modify the contents of a classifier variable.
+nokernel
+int classifier_set_memory(_gxio_mpipe_symbol_name_t name, BLOB blob);
+
+
+// Commit classifier rules.
+int commit_rules(BLOB blob);
+
+// Map all of a client's memory via the given IOTLB.
+nouser
+int register_client_memory(uint iotlb, HV_PTE pte, uint flags);
+
+// Open a link.  Returns the channel number and MAC index or a negative error
+// code.
+int link_open_aux(_gxio_mpipe_link_name_t name, uint flags);
+
+// Close a link.
+int link_close_aux(int mac);
+
+// Set a link attribute.
+int link_set_attr_aux(int mac, uint32_t attr, int64_t val);
+
+// Get a link attribute.
+read, nokernel
+int link_get_attr_aux(OFFSET off, int64_t* data);
+
+// Read an MDIO register.
+int link_mdio_rd_aux(int mac, int phy, int dev, int addr);
+
+// Write an MDIO register.
+int link_mdio_wr_aux(int mac, int phy, int dev, int addr, uint16_t val);
+
+// Read a MAC register.
+read, nokernel
+int link_mac_rd_aux(OFFSET off, int64_t* data);
+
+// Write a MAC register.
+nokernel
+int link_mac_wr_aux(int mac, int addr, uint32_t val);
+
+// Get a sequence number.
+nokernel
+int get_sqn(int idx);
+
+// Set mPIPE counter configuration.
+nokernel
+int config_stats(uint32_t command, uint64_t val);
+
+// Get mPIPE statistics.
+read, nokernel
+int get_stats(gxio_mpipe_stats_t* result);
+
+// Get an mPIPE counter.
+read, nokernel
+int get_counter(OFFSET off, uint64_t* result);
+
+// Configure link status interrupt with pollable file descriptor.
+nokernel
+int link_cfg_pollfd(POLLFD_SETUP inter, uint64_t linkmask);
+
+// Get mPIPE timestamp.
+read
+int get_timestamp_aux(uint64_t *sec, uint64_t *nsec, uint64_t *cycles);
+
+// Set mPIPE timestamp.
+int set_timestamp_aux(uint64_t sec, uint64_t nsec, uint64_t cycles);
+
+// Adjust mPIPE timestamp.
+int adjust_timestamp_aux(int64_t nsec);
+
+// Configure the "blks" info for a given edma ring.
+int config_edma_ring_blks(uint ering, uint max_blks, uint min_snf_blks,
+                          uint db);
+
+// Calibrate mPIPE timestamp clock.
+int adjust_timestamp_freq(int32_t ppb);
+
+// Set the priority level to an edma ring.
+int edma_ring_set_priority(uint ering, uint ering_priority);
+
+// Get the priority level of an edma ring.
+int edma_ring_get_priority(uint ering);
+
+// Get number of buffers currently in a buffer stack.
+int get_buffer_count(uint32_t stack);
+
+// Get a long link attribute.
+read
+int link_get_lattr_aux(OFFSET off, BLOB* buf);

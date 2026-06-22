@@ -1,0 +1,1262 @@
+#!/bin/bash -ex
+
+# Run this script to create the corresponding source subdir in the CWD.
+
+me=$(basename $0)
+DIR=$(basename $0 .get)
+if [ -d $DIR ]; then
+    echo "$me: Cannot replace existing directory '$DIR'." >&2
+    exit 1
+fi
+
+MD5SUM=1f300a7a7f975d4046f51c3022fa5ff1
+FROM=ftp://sourceware.org/pub/libffi
+ORIG=$DIR.tar.gz
+
+if [ ! -f $ORIG ]; then
+    if [ -n "$DOWNLOAD_CACHE" -a -f "$DOWNLOAD_CACHE/$ORIG" ]; then
+        ORIG="$DOWNLOAD_CACHE/$ORIG"
+    else
+        curl -L $FROM/$ORIG > $ORIG.tmp
+        mv $ORIG.tmp $ORIG
+    fi
+fi
+
+if [ $MD5SUM != `md5sum $ORIG | cut -f1 -d' '` ]; then
+    echo "$me: Wrong md5sum for '$ORIG'." >&2
+    exit 1
+fi
+
+tar xf $ORIG
+
+cat $0 | patch -d $DIR -p1 -s
+
+# Update "config.guess" and "config.sub" files.
+TRT=`uname -m | sed -e "s,tile.*,," -e "s,..*,$TILERA_ROOT/tile,"`
+cd $DIR
+for name in config.guess config.sub; do
+    for path in `find . -name $name`; do
+        echo "Updating '$path'..."
+        cp -f $TRT/usr/lib/rpm/$name $path
+    done
+done
+
+exit 0
+
+# The actual Tilera patch starts here.
+
+diff -u -ru -x '*~' libffi-3.0.9/configure libffi-3.0.9/configure
+--- libffi-3.0.9/configure	2009-12-31 07:41:51.000000000 -0500
++++ libffi-3.0.9/configure	2010-05-18 13:42:41.206482000 -0400
+@@ -795,6 +795,8 @@
+ TARGET
+ HAVE_LONG_DOUBLE
+ ALLOCA
++TILE_FALSE
++TILE_TRUE
+ PA64_HPUX_FALSE
+ PA64_HPUX_TRUE
+ PA_HPUX_FALSE
+@@ -4774,13 +4776,13 @@
+ else
+   lt_cv_nm_interface="BSD nm"
+   echo "int some_variable = 0;" > conftest.$ac_ext
+-  (eval echo "\"\$as_me:4777: $ac_compile\"" >&5)
++  (eval echo "\"\$as_me:4779: $ac_compile\"" >&5)
+   (eval "$ac_compile" 2>conftest.err)
+   cat conftest.err >&5
+-  (eval echo "\"\$as_me:4780: $NM \\\"conftest.$ac_objext\\\"\"" >&5)
++  (eval echo "\"\$as_me:4782: $NM \\\"conftest.$ac_objext\\\"\"" >&5)
+   (eval "$NM \"conftest.$ac_objext\"" 2>conftest.err > conftest.out)
+   cat conftest.err >&5
+-  (eval echo "\"\$as_me:4783: output\"" >&5)
++  (eval echo "\"\$as_me:4785: output\"" >&5)
+   cat conftest.out >&5
+   if $GREP 'External.*some_variable' conftest.out > /dev/null; then
+     lt_cv_nm_interface="MS dumpbin"
+@@ -5986,7 +5988,7 @@
+   ;;
+ *-*-irix6*)
+   # Find out which ABI we are using.
+-  echo '#line 5989 "configure"' > conftest.$ac_ext
++  echo '#line 5991 "configure"' > conftest.$ac_ext
+   if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+   (eval $ac_compile) 2>&5
+   ac_status=$?
+@@ -7839,11 +7841,11 @@
+    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
+    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
+    -e 's:$: $lt_compiler_flag:'`
+-   (eval echo "\"\$as_me:7842: $lt_compile\"" >&5)
++   (eval echo "\"\$as_me:7844: $lt_compile\"" >&5)
+    (eval "$lt_compile" 2>conftest.err)
+    ac_status=$?
+    cat conftest.err >&5
+-   echo "$as_me:7846: \$? = $ac_status" >&5
++   echo "$as_me:7848: \$? = $ac_status" >&5
+    if (exit $ac_status) && test -s "$ac_outfile"; then
+      # The compiler can only warn and ignore the option if not recognized
+      # So say no if there are warnings other than the usual output.
+@@ -8178,11 +8180,11 @@
+    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
+    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
+    -e 's:$: $lt_compiler_flag:'`
+-   (eval echo "\"\$as_me:8181: $lt_compile\"" >&5)
++   (eval echo "\"\$as_me:8183: $lt_compile\"" >&5)
+    (eval "$lt_compile" 2>conftest.err)
+    ac_status=$?
+    cat conftest.err >&5
+-   echo "$as_me:8185: \$? = $ac_status" >&5
++   echo "$as_me:8187: \$? = $ac_status" >&5
+    if (exit $ac_status) && test -s "$ac_outfile"; then
+      # The compiler can only warn and ignore the option if not recognized
+      # So say no if there are warnings other than the usual output.
+@@ -8283,11 +8285,11 @@
+    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
+    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
+    -e 's:$: $lt_compiler_flag:'`
+-   (eval echo "\"\$as_me:8286: $lt_compile\"" >&5)
++   (eval echo "\"\$as_me:8288: $lt_compile\"" >&5)
+    (eval "$lt_compile" 2>out/conftest.err)
+    ac_status=$?
+    cat out/conftest.err >&5
+-   echo "$as_me:8290: \$? = $ac_status" >&5
++   echo "$as_me:8292: \$? = $ac_status" >&5
+    if (exit $ac_status) && test -s out/conftest2.$ac_objext
+    then
+      # The compiler can only warn and ignore the option if not recognized
+@@ -8338,11 +8340,11 @@
+    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
+    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
+    -e 's:$: $lt_compiler_flag:'`
+-   (eval echo "\"\$as_me:8341: $lt_compile\"" >&5)
++   (eval echo "\"\$as_me:8343: $lt_compile\"" >&5)
+    (eval "$lt_compile" 2>out/conftest.err)
+    ac_status=$?
+    cat out/conftest.err >&5
+-   echo "$as_me:8345: \$? = $ac_status" >&5
++   echo "$as_me:8347: \$? = $ac_status" >&5
+    if (exit $ac_status) && test -s out/conftest2.$ac_objext
+    then
+      # The compiler can only warn and ignore the option if not recognized
+@@ -11141,7 +11143,7 @@
+   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
+   lt_status=$lt_dlunknown
+   cat > conftest.$ac_ext <<_LT_EOF
+-#line 11144 "configure"
++#line 11146 "configure"
+ #include "confdefs.h"
+ 
+ #if HAVE_DLFCN_H
+@@ -11237,7 +11239,7 @@
+   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
+   lt_status=$lt_dlunknown
+   cat > conftest.$ac_ext <<_LT_EOF
+-#line 11240 "configure"
++#line 11242 "configure"
+ #include "confdefs.h"
+ 
+ #if HAVE_DLFCN_H
+@@ -12250,6 +12252,10 @@
+ 	TARGET=SPARC; TARGETDIR=sparc
+ 	;;
+ 
++  tile-*-* | tilepro*-*-* | tilegx*-*-*)
++	TARGET=TILE; TARGETDIR=tile
++	;;
++
+   x86_64-*-darwin*)
+ 	TARGET=X86_DARWIN; TARGETDIR=x86
+ 	;;
+@@ -12480,6 +12486,14 @@
+   PA64_HPUX_FALSE=
+ fi
+ 
++ if test x$TARGET = xTILE; then
++  TILE_TRUE=
++  TILE_FALSE='#'
++else
++  TILE_TRUE='#'
++  TILE_FALSE=
++fi
++
+ 
+ { $as_echo "$as_me:$LINENO: checking for ANSI C header files" >&5
+ $as_echo_n "checking for ANSI C header files... " >&6; }
+@@ -14992,6 +15006,13 @@
+ Usually this means the macro was only invoked conditionally." >&2;}
+    { (exit 1); exit 1; }; }
+ fi
++if test -z "${TILE_TRUE}" && test -z "${TILE_FALSE}"; then
++  { { $as_echo "$as_me:$LINENO: error: conditional \"TILE\" was never defined.
++Usually this means the macro was only invoked conditionally." >&5
++$as_echo "$as_me: error: conditional \"TILE\" was never defined.
++Usually this means the macro was only invoked conditionally." >&2;}
++   { (exit 1); exit 1; }; }
++fi
+ 
+ 
+ : ${CONFIG_STATUS=./config.status}
+diff -u -ru -x '*~' libffi-3.0.9/configure.ac libffi-3.0.9/configure.ac
+--- libffi-3.0.9/configure.ac	2009-12-31 07:41:51.000000000 -0500
++++ libffi-3.0.9/configure.ac	2010-05-18 13:42:25.778302000 -0400
+@@ -150,6 +150,10 @@
+ 	TARGET=SPARC; TARGETDIR=sparc
+ 	;;
+ 
++  tile-*-* | tilepro*-*-* | tilegx*-*-*)
++	TARGET=TILE; TARGETDIR=tile
++	;;
++
+   x86_64-*-darwin*)
+ 	TARGET=X86_DARWIN; TARGETDIR=x86
+ 	;;
+@@ -196,6 +200,7 @@
+ AM_CONDITIONAL(PA_LINUX, test x$TARGET = xPA_LINUX)
+ AM_CONDITIONAL(PA_HPUX, test x$TARGET = xPA_HPUX)
+ AM_CONDITIONAL(PA64_HPUX, test x$TARGET = xPA64_HPUX)
++AM_CONDITIONAL(TILE, test x$TARGET = xTILE)
+ 
+ AC_HEADER_STDC
+ AC_CHECK_FUNCS(memcpy)
+diff -u -ru -x '*~' libffi-3.0.9/include/Makefile.in libffi-3.0.9/include/Makefile.in
+--- libffi-3.0.9/include/Makefile.in	2009-12-31 07:41:01.000000000 -0500
++++ libffi-3.0.9/include/Makefile.in	2010-05-18 13:42:49.411581000 -0400
+@@ -78,6 +78,7 @@
+ ACLOCAL = @ACLOCAL@
+ ALLOCA = @ALLOCA@
+ AMTAR = @AMTAR@
++AM_LTLDFLAGS = @AM_LTLDFLAGS@
+ AM_RUNTESTFLAGS = @AM_RUNTESTFLAGS@
+ AR = @AR@
+ AUTOCONF = @AUTOCONF@
+diff -u -ru -x '*~' libffi-3.0.9/Makefile.am libffi-3.0.9/Makefile.am
+--- libffi-3.0.9/Makefile.am	2009-12-31 07:41:43.000000000 -0500
++++ libffi-3.0.9/Makefile.am	2010-05-18 13:39:09.286277000 -0400
+@@ -30,7 +30,9 @@
+ 	src/x86/darwin.S src/x86/freebsd.S \
+ 	src/x86/ffi64.c src/x86/unix64.S src/x86/ffitarget.h \
+ 	src/pa/ffitarget.h src/pa/ffi.c src/pa/linux.S src/pa/hpux32.S \
+-	src/frv/ffi.c src/frv/eabi.S src/frv/ffitarget.h src/dlmalloc.c \
++	src/frv/ffi.c src/frv/eabi.S src/frv/ffitarget.h \
++	src/tile/ffi.c src/tile/tile.S \
++	src/dlmalloc.c \
+ 	libtool-version ChangeLog.libffi m4/libtool.m4 \
+ 	m4/lt~obsolete.m4 m4/ltoptions.m4 m4/ltsugar.m4 m4/ltversion.m4
+ 
+@@ -169,6 +171,9 @@
+ if PA_HPUX
+ nodist_libffi_la_SOURCES += src/pa/hpux32.S src/pa/ffi.c
+ endif
++if TILE
++nodist_libffi_la_SOURCES += src/tile/ffi.c src/tile/tile.S
++endif
+ 
+ libffi_convenience_la_SOURCES = $(libffi_la_SOURCES)
+ nodist_libffi_convenience_la_SOURCES = $(nodist_libffi_la_SOURCES)
+diff -u -ru -x '*~' libffi-3.0.9/Makefile.in libffi-3.0.9/Makefile.in
+--- libffi-3.0.9/Makefile.in	2009-12-31 07:41:43.000000000 -0500
++++ libffi-3.0.9/Makefile.in	2010-05-18 13:42:49.922161000 -0400
+@@ -61,6 +61,7 @@
+ @SH64_TRUE@am__append_23 = src/sh64/sysv.S src/sh64/ffi.c
+ @PA_LINUX_TRUE@am__append_24 = src/pa/linux.S src/pa/ffi.c
+ @PA_HPUX_TRUE@am__append_25 = src/pa/hpux32.S src/pa/ffi.c
++@TILE_TRUE@am__append_26 = src/tile/ffi.c src/tile/tile.S
+ subdir = .
+ DIST_COMMON = README $(am__configure_deps) $(srcdir)/Makefile.am \
+ 	$(srcdir)/Makefile.in $(srcdir)/doc/stamp-vti \
+@@ -145,6 +146,7 @@
+ @SH64_TRUE@am__objects_23 = src/sh64/sysv.lo src/sh64/ffi.lo
+ @PA_LINUX_TRUE@am__objects_24 = src/pa/linux.lo src/pa/ffi.lo
+ @PA_HPUX_TRUE@am__objects_25 = src/pa/hpux32.lo src/pa/ffi.lo
++@TILE_TRUE@am__objects_26 = src/tile/ffi.lo src/tile/tile.lo
+ nodist_libffi_la_OBJECTS = $(am__objects_1) $(am__objects_2) \
+ 	$(am__objects_3) $(am__objects_4) $(am__objects_5) \
+ 	$(am__objects_6) $(am__objects_7) $(am__objects_8) \
+@@ -153,17 +155,17 @@
+ 	$(am__objects_15) $(am__objects_16) $(am__objects_17) \
+ 	$(am__objects_18) $(am__objects_19) $(am__objects_20) \
+ 	$(am__objects_21) $(am__objects_22) $(am__objects_23) \
+-	$(am__objects_24) $(am__objects_25)
++	$(am__objects_24) $(am__objects_25) $(am__objects_26)
+ libffi_la_OBJECTS = $(am_libffi_la_OBJECTS) \
+ 	$(nodist_libffi_la_OBJECTS)
+ libffi_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
+ 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
+ 	$(libffi_la_LDFLAGS) $(LDFLAGS) -o $@
+ libffi_convenience_la_LIBADD =
+-am__objects_26 = src/debug.lo src/prep_cif.lo src/types.lo \
++am__objects_27 = src/debug.lo src/prep_cif.lo src/types.lo \
+ 	src/raw_api.lo src/java_raw_api.lo src/closures.lo
+-am_libffi_convenience_la_OBJECTS = $(am__objects_26)
+-am__objects_27 = $(am__objects_1) $(am__objects_2) $(am__objects_3) \
++am_libffi_convenience_la_OBJECTS = $(am__objects_27)
++am__objects_28 = $(am__objects_1) $(am__objects_2) $(am__objects_3) \
+ 	$(am__objects_4) $(am__objects_5) $(am__objects_6) \
+ 	$(am__objects_7) $(am__objects_8) $(am__objects_9) \
+ 	$(am__objects_10) $(am__objects_11) $(am__objects_12) \
+@@ -171,8 +173,8 @@
+ 	$(am__objects_16) $(am__objects_17) $(am__objects_18) \
+ 	$(am__objects_19) $(am__objects_20) $(am__objects_21) \
+ 	$(am__objects_22) $(am__objects_23) $(am__objects_24) \
+-	$(am__objects_25)
+-nodist_libffi_convenience_la_OBJECTS = $(am__objects_27)
++	$(am__objects_25) $(am__objects_26)
++nodist_libffi_convenience_la_OBJECTS = $(am__objects_28)
+ libffi_convenience_la_OBJECTS = $(am_libffi_convenience_la_OBJECTS) \
+ 	$(nodist_libffi_convenience_la_OBJECTS)
+ DEFAULT_INCLUDES = -I.@am__isrc@
+@@ -415,7 +417,9 @@
+ 	src/x86/darwin.S src/x86/freebsd.S \
+ 	src/x86/ffi64.c src/x86/unix64.S src/x86/ffitarget.h \
+ 	src/pa/ffitarget.h src/pa/ffi.c src/pa/linux.S src/pa/hpux32.S \
+-	src/frv/ffi.c src/frv/eabi.S src/frv/ffitarget.h src/dlmalloc.c \
++	src/frv/ffi.c src/frv/eabi.S src/frv/ffitarget.h \
++	src/tile/ffi.c src/tile/tile.S \
++	src/dlmalloc.c \
+ 	libtool-version ChangeLog.libffi m4/libtool.m4 \
+ 	m4/lt~obsolete.m4 m4/ltoptions.m4 m4/ltsugar.m4 m4/ltversion.m4
+ 
+@@ -475,7 +479,7 @@
+ 	$(am__append_15) $(am__append_16) $(am__append_17) \
+ 	$(am__append_18) $(am__append_19) $(am__append_20) \
+ 	$(am__append_21) $(am__append_22) $(am__append_23) \
+-	$(am__append_24) $(am__append_25)
++	$(am__append_24) $(am__append_25) $(am__append_26)
+ libffi_convenience_la_SOURCES = $(libffi_la_SOURCES)
+ nodist_libffi_convenience_la_SOURCES = $(nodist_libffi_la_SOURCES)
+ AM_CFLAGS = -Wall -g -fexceptions
+@@ -786,6 +790,16 @@
+ src/pa/ffi.lo: src/pa/$(am__dirstamp) src/pa/$(DEPDIR)/$(am__dirstamp)
+ src/pa/hpux32.lo: src/pa/$(am__dirstamp) \
+ 	src/pa/$(DEPDIR)/$(am__dirstamp)
++src/tile/$(am__dirstamp):
++	@$(MKDIR_P) src/tile
++	@: > src/tile/$(am__dirstamp)
++src/tile/$(DEPDIR)/$(am__dirstamp):
++	@$(MKDIR_P) src/tile/$(DEPDIR)
++	@: > src/tile/$(DEPDIR)/$(am__dirstamp)
++src/tile/ffi.lo: src/tile/$(am__dirstamp) \
++	src/tile/$(DEPDIR)/$(am__dirstamp)
++src/tile/tile.lo: src/tile/$(am__dirstamp) \
++	src/tile/$(DEPDIR)/$(am__dirstamp)
+ libffi.la: $(libffi_la_OBJECTS) $(libffi_la_DEPENDENCIES) 
+ 	$(libffi_la_LINK) -rpath $(libdir) $(libffi_la_OBJECTS) $(libffi_la_LIBADD) $(LIBS)
+ libffi_convenience.la: $(libffi_convenience_la_OBJECTS) $(libffi_convenience_la_DEPENDENCIES) 
+@@ -885,6 +899,10 @@
+ 	-rm -f src/sparc/v8.lo
+ 	-rm -f src/sparc/v9.$(OBJEXT)
+ 	-rm -f src/sparc/v9.lo
++	-rm -f src/tile/ffi.$(OBJEXT)
++	-rm -f src/tile/ffi.lo
++	-rm -f src/tile/tile.$(OBJEXT)
++	-rm -f src/tile/tile.lo
+ 	-rm -f src/types.$(OBJEXT)
+ 	-rm -f src/types.lo
+ 	-rm -f src/x86/darwin.$(OBJEXT)
+@@ -956,6 +974,8 @@
+ @AMDEP_TRUE@@am__include@ @am__quote@src/sparc/$(DEPDIR)/ffi.Plo@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@src/sparc/$(DEPDIR)/v8.Plo@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@src/sparc/$(DEPDIR)/v9.Plo@am__quote@
++@AMDEP_TRUE@@am__include@ @am__quote@src/tile/$(DEPDIR)/ffi.Plo@am__quote@
++@AMDEP_TRUE@@am__include@ @am__quote@src/tile/$(DEPDIR)/tile.Plo@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@src/x86/$(DEPDIR)/darwin.Plo@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@src/x86/$(DEPDIR)/darwin64.Plo@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@src/x86/$(DEPDIR)/ffi.Plo@am__quote@
+@@ -1035,6 +1055,7 @@
+ 	-rm -rf src/sh/.libs src/sh/_libs
+ 	-rm -rf src/sh64/.libs src/sh64/_libs
+ 	-rm -rf src/sparc/.libs src/sparc/_libs
++	-rm -rf src/tile/.libs src/tile/_libs
+ 	-rm -rf src/x86/.libs src/x86/_libs
+ 
+ distclean-libtool:
+@@ -1599,6 +1620,8 @@
+ 	-rm -f src/sh64/$(am__dirstamp)
+ 	-rm -f src/sparc/$(DEPDIR)/$(am__dirstamp)
+ 	-rm -f src/sparc/$(am__dirstamp)
++	-rm -f src/tile/$(DEPDIR)/$(am__dirstamp)
++	-rm -f src/tile/$(am__dirstamp)
+ 	-rm -f src/x86/$(DEPDIR)/$(am__dirstamp)
+ 	-rm -f src/x86/$(am__dirstamp)
+ 
+@@ -1612,7 +1635,7 @@
+ 
+ distclean: distclean-recursive
+ 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
+-	-rm -rf src/$(DEPDIR) src/alpha/$(DEPDIR) src/arm/$(DEPDIR) src/avr32/$(DEPDIR) src/cris/$(DEPDIR) src/frv/$(DEPDIR) src/ia64/$(DEPDIR) src/m32r/$(DEPDIR) src/m68k/$(DEPDIR) src/mips/$(DEPDIR) src/pa/$(DEPDIR) src/powerpc/$(DEPDIR) src/s390/$(DEPDIR) src/sh/$(DEPDIR) src/sh64/$(DEPDIR) src/sparc/$(DEPDIR) src/x86/$(DEPDIR)
++	-rm -rf src/$(DEPDIR) src/alpha/$(DEPDIR) src/arm/$(DEPDIR) src/avr32/$(DEPDIR) src/cris/$(DEPDIR) src/frv/$(DEPDIR) src/ia64/$(DEPDIR) src/m32r/$(DEPDIR) src/m68k/$(DEPDIR) src/mips/$(DEPDIR) src/pa/$(DEPDIR) src/powerpc/$(DEPDIR) src/s390/$(DEPDIR) src/sh/$(DEPDIR) src/sh64/$(DEPDIR) src/sparc/$(DEPDIR) src/tile/$(DEPDIR) src/x86/$(DEPDIR)
+ 	-rm -f Makefile
+ distclean-am: clean-am distclean-compile distclean-generic \
+ 	distclean-hdr distclean-libtool distclean-tags
+@@ -1732,7 +1755,7 @@
+ maintainer-clean: maintainer-clean-recursive
+ 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
+ 	-rm -rf $(top_srcdir)/autom4te.cache
+-	-rm -rf src/$(DEPDIR) src/alpha/$(DEPDIR) src/arm/$(DEPDIR) src/avr32/$(DEPDIR) src/cris/$(DEPDIR) src/frv/$(DEPDIR) src/ia64/$(DEPDIR) src/m32r/$(DEPDIR) src/m68k/$(DEPDIR) src/mips/$(DEPDIR) src/pa/$(DEPDIR) src/powerpc/$(DEPDIR) src/s390/$(DEPDIR) src/sh/$(DEPDIR) src/sh64/$(DEPDIR) src/sparc/$(DEPDIR) src/x86/$(DEPDIR)
++	-rm -rf src/$(DEPDIR) src/alpha/$(DEPDIR) src/arm/$(DEPDIR) src/avr32/$(DEPDIR) src/cris/$(DEPDIR) src/frv/$(DEPDIR) src/ia64/$(DEPDIR) src/m32r/$(DEPDIR) src/m68k/$(DEPDIR) src/mips/$(DEPDIR) src/pa/$(DEPDIR) src/powerpc/$(DEPDIR) src/s390/$(DEPDIR) src/sh/$(DEPDIR) src/sh64/$(DEPDIR) src/sparc/$(DEPDIR) src/tile/$(DEPDIR) src/x86/$(DEPDIR)
+ 	-rm -f Makefile
+ maintainer-clean-am: distclean-am maintainer-clean-aminfo \
+ 	maintainer-clean-generic maintainer-clean-vti
+diff -u -ru -x '*~' libffi-3.0.9/man/Makefile.in libffi-3.0.9/man/Makefile.in
+--- libffi-3.0.9/man/Makefile.in	2009-12-31 07:41:01.000000000 -0500
++++ libffi-3.0.9/man/Makefile.in	2010-05-18 13:42:49.518481000 -0400
+@@ -76,6 +76,7 @@
+ ACLOCAL = @ACLOCAL@
+ ALLOCA = @ALLOCA@
+ AMTAR = @AMTAR@
++AM_LTLDFLAGS = @AM_LTLDFLAGS@
+ AM_RUNTESTFLAGS = @AM_RUNTESTFLAGS@
+ AR = @AR@
+ AUTOCONF = @AUTOCONF@
+diff -u -ru -x '*~' libffi-3.0.9/src/prep_cif.c libffi-3.0.9/src/prep_cif.c
+--- libffi-3.0.9/src/prep_cif.c	2009-12-29 10:22:26.000000000 -0500
++++ libffi-3.0.9/src/prep_cif.c	2010-05-11 10:39:09.092061000 -0400
+@@ -119,6 +119,9 @@
+ #ifdef X86_DARWIN
+       && (cif->rtype->size > 8)
+ #endif
++#ifdef TILE
++      && (cif->rtype->size > 10 * FFI_SIZEOF_ARG)
++#endif
+      )
+     bytes = STACK_ARG_SIZE(sizeof(void*));
+ #endif
+@@ -148,6 +151,16 @@
+ 	  if (((*ptr)->alignment - 1) & bytes)
+ 	    bytes = ALIGN(bytes, (*ptr)->alignment);
+ 
++#ifdef TILE
++          if (bytes < 10 * FFI_SIZEOF_ARG &&
++              bytes + STACK_ARG_SIZE((*ptr)->size) > 10 * FFI_SIZEOF_ARG)
++            {
++              /* An argument is never split between the 10 parameter
++                 registers and the stack. */
++              bytes = 10 * FFI_SIZEOF_ARG;
++            }
++#endif
++
+ 	  bytes += STACK_ARG_SIZE((*ptr)->size);
+ 	}
+ #endif
+diff -u -ru -x '*~' libffi-3.0.9/testsuite/Makefile.in libffi-3.0.9/testsuite/Makefile.in
+--- libffi-3.0.9/testsuite/Makefile.in	2009-12-31 07:41:01.000000000 -0500
++++ libffi-3.0.9/testsuite/Makefile.in	2010-05-18 13:42:49.624369000 -0400
+@@ -53,6 +53,7 @@
+ ACLOCAL = @ACLOCAL@
+ ALLOCA = @ALLOCA@
+ AMTAR = @AMTAR@
++AM_LTLDFLAGS = @AM_LTLDFLAGS@
+ AM_RUNTESTFLAGS = 
+ AR = @AR@
+ AUTOCONF = @AUTOCONF@
+diff -u -ru -x '*~' libffi-3.0.9/testsuite/libffi.call/float.c libffi-3.0.9/testsuite/libffi.call/float.c
+--- libffi-3.0.9/testsuite/libffi.call/float.c  2009-12-29 10:22:26.000000000 -0500
++++ libffi-3.0.9/testsuite/libffi.call/float.c  2011-10-26 01:36:44.613322000 -0400
+@@ -55,5 +55,14 @@
+ 
+   CHECK((int)rint == floating(si1, f, d, ld));
+ 
++  /* Check negative float.  */
++  f = -f;
++
++  ffi_call(&cif, FFI_FN(floating), &rint, values);
++
++  printf ("%d vs %d\n", (int)rint, floating (si1, f, d, ld));
++
++  CHECK((int)rint == floating(si1, f, d, ld));
++
+   exit (0);
+ }
+diff -N -r -u ./empty/tile/ffi.c ./src/tile/ffi.c
+--- ./empty/tile/ffi.c	1969-12-31 19:00:00.000000000 -0500
++++ ./src/tile/ffi.c	2012-07-30 23:53:38.186718000 -0400
+@@ -0,0 +1,355 @@
++/* -----------------------------------------------------------------------
++   ffi.c - Copyright (c) 2012 Tilera Corp.
++   
++   TILE Foreign Function Interface 
++
++   Permission is hereby granted, free of charge, to any person obtaining
++   a copy of this software and associated documentation files (the
++   ``Software''), to deal in the Software without restriction, including
++   without limitation the rights to use, copy, modify, merge, publish,
++   distribute, sublicense, and/or sell copies of the Software, and to
++   permit persons to whom the Software is furnished to do so, subject to
++   the following conditions:
++
++   The above copyright notice and this permission notice shall be included
++   in all copies or substantial portions of the Software.
++
++   THE SOFTWARE IS PROVIDED ``AS IS'', WITHOUT WARRANTY OF ANY KIND,
++   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++   NONINFRINGEMENT.  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
++   HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
++   WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
++   DEALINGS IN THE SOFTWARE.
++   ----------------------------------------------------------------------- */
++
++#include <ffi.h>
++#include <ffi_common.h>
++#include <stdlib.h>
++#include <stdint.h>
++#include <unistd.h>
++#include <arch/abi.h>
++#include <arch/icache.h>
++#include <arch/opcode.h>
++
++
++/* The first 10 registers are used to pass arguments and return values. */
++#define NUM_ARG_REGS 10
++
++/* Performs a raw function call with the given NUM_ARG_REGS register arguments
++   and the specified additional stack arguments (if any). */
++extern void ffi_call_tile(ffi_sarg reg_args[NUM_ARG_REGS],
++                          const ffi_sarg *stack_args,
++                          size_t stack_args_bytes,
++                          void (*fnaddr)(void))
++  FFI_HIDDEN;
++
++/* This handles the raw call from the closure stub, cleaning up the
++   parameters and delegating to ffi_closure_tile_inner. */
++extern void ffi_closure_tile(void) FFI_HIDDEN;
++
++
++ffi_status
++ffi_prep_cif_machdep(ffi_cif *cif)
++{
++  /* We always allocate room for all registers. Even if we don't
++     use them as parameters, they get returned in the same array
++     as struct return values so we need to make room. */
++  if (cif->bytes < NUM_ARG_REGS * FFI_SIZEOF_ARG)
++    cif->bytes = NUM_ARG_REGS * FFI_SIZEOF_ARG;
++
++  if (cif->rtype->size > NUM_ARG_REGS * FFI_SIZEOF_ARG)
++    cif->flags = FFI_TYPE_STRUCT;
++  else
++    cif->flags = FFI_TYPE_INT;
++
++  /* Nothing to do. */
++  return FFI_OK;
++}
++
++
++static long
++assign_to_ffi_arg(ffi_sarg *out, void *in, const ffi_type *type,
++                  int write_to_reg)
++{
++  switch (type->type)
++    {
++    case FFI_TYPE_SINT8:
++      *out = *(SINT8 *)in;
++      return 1;
++		  
++    case FFI_TYPE_UINT8:
++      *out = *(UINT8 *)in;
++      return 1;
++		  
++    case FFI_TYPE_SINT16:
++      *out = *(SINT16 *)in;
++      return 1;
++		  
++    case FFI_TYPE_UINT16:
++      *out = *(UINT16 *)in;
++      return 1;
++		  
++    case FFI_TYPE_SINT32:
++    case FFI_TYPE_UINT32:
++#ifndef __LP64__
++    case FFI_TYPE_POINTER:
++#endif
++      /* Note that even unsigned 32-bit quantities are sign extended
++         on tilegx when stored in a register.  */
++      *out = *(SINT32 *)in;
++      return 1;
++		  
++    case FFI_TYPE_FLOAT:
++#ifdef __tilegx__
++      if (write_to_reg)
++        {
++          /* Properly sign extend the value.  */
++          union { float f; SINT32 s32; } val;
++          val.f = *(float *)in;
++          *out = val.s32;
++        }
++      else
++#endif
++        {
++          *(float *)out = *(float *)in;
++        }
++      return 1;
++
++    case FFI_TYPE_SINT64:
++    case FFI_TYPE_UINT64:
++    case FFI_TYPE_DOUBLE:
++#ifdef __LP64__
++    case FFI_TYPE_POINTER:
++#endif
++      *(UINT64 *)out = *(UINT64 *)in;
++      return sizeof(UINT64) / FFI_SIZEOF_ARG;
++
++    case FFI_TYPE_STRUCT:
++      memcpy(out, in, type->size);
++      return (type->size + FFI_SIZEOF_ARG - 1) / FFI_SIZEOF_ARG;
++
++    case FFI_TYPE_VOID:
++      /* Must be a return type. Nothing to do. */
++      return 0;
++
++    default:
++      FFI_ASSERT(0);
++      return -1;
++    }
++}
++
++
++void
++ffi_call(ffi_cif *cif, void (*fn)(void), void *rvalue, void **avalue)
++{
++  ffi_sarg * const arg_mem = alloca(cif->bytes);
++  ffi_sarg * const reg_args = arg_mem;
++  ffi_sarg * const stack_args = &reg_args[NUM_ARG_REGS];
++  ffi_sarg *argp = arg_mem;
++  ffi_type ** const arg_types = cif->arg_types;
++  const long num_args = cif->nargs;
++  long i;
++
++  if (cif->flags == FFI_TYPE_STRUCT)
++    {
++      /* Pass a hidden pointer to the return value. We make sure there
++         is scratch space for the callee to store the return value even if
++         our caller doesn't care about it. */
++      *argp++ = (intptr_t)(rvalue ? rvalue : alloca(cif->rtype->size));
++
++      /* No more work needed to return anything. */
++      rvalue = NULL;
++    }
++
++  for (i = 0; i < num_args; i++)
++    {
++      ffi_type *type = arg_types[i];
++      void * const arg_in = avalue[i];
++      ptrdiff_t arg_word = argp - arg_mem;
++
++#ifndef __tilegx__
++      /* Doubleword-aligned values are always in an even-number register
++         pair, or doubleword-aligned stack slot if out of registers. */
++      long align = arg_word & (type->alignment > FFI_SIZEOF_ARG);
++      argp += align;
++      arg_word += align;
++#endif
++
++      if (type->type == FFI_TYPE_STRUCT)
++        {
++          const size_t arg_size_in_words =
++            (type->size + FFI_SIZEOF_ARG - 1) / FFI_SIZEOF_ARG;
++
++          if (arg_word < NUM_ARG_REGS &&
++              arg_word + arg_size_in_words > NUM_ARG_REGS)
++            {
++              /* Args are not allowed to span registers and the stack. */
++              argp = stack_args;
++            }
++
++          memcpy(argp, arg_in, type->size);
++          argp += arg_size_in_words;
++        }
++      else
++        {
++          argp += assign_to_ffi_arg(argp, arg_in, arg_types[i], 1);
++        }
++    }
++
++  /* Actually do the call. */
++  ffi_call_tile(reg_args, stack_args,
++                cif->bytes - (NUM_ARG_REGS * FFI_SIZEOF_ARG), fn);
++
++  if (rvalue != NULL)
++    assign_to_ffi_arg(rvalue, reg_args, cif->rtype, 0);
++}
++
++
++/* Template code for closure. */
++extern const UINT64 ffi_template_tramp_tile[] FFI_HIDDEN;
++
++
++ffi_status
++ffi_prep_closure_loc (ffi_closure *closure,
++		      ffi_cif *cif,
++		      void (*fun)(ffi_cif*, void*, void**, void*),
++		      void *user_data,
++		      void *codeloc)
++{
++#ifdef __tilegx__
++  /* TILE-Gx */
++  SINT64 c;
++  SINT64 h;
++  int s;
++  UINT64 *out;
++
++  if (cif->abi != FFI_UNIX)
++    return FFI_BAD_ABI;
++
++  out = (UINT64 *)closure->tramp;
++
++  c = (intptr_t)closure;
++  h = (intptr_t)ffi_closure_tile;
++  s = 0;
++
++  /* Find the smallest shift count that doesn't lose information
++     (i.e. no need to explicitly insert high bits of the address that
++     are just the sign extension of the low bits). */
++  while ((c >> s) != (SINT16)(c >> s) || (h >> s) != (SINT16)(h >> s))
++    s += 16;
++
++#define OPS(a, b, shift) \
++  (create_Imm16_X0((a) >> (shift)) | create_Imm16_X1((b) >> (shift)))
++
++  /* Emit the moveli. */
++  *out++ = ffi_template_tramp_tile[0] | OPS(c, h, s);
++  for (s -= 16; s >= 0; s -= 16)
++    *out++ = ffi_template_tramp_tile[1] | OPS(c, h, s);
++
++#undef OPS
++
++  *out++ = ffi_template_tramp_tile[2];
++
++#else
++  /* TILEPro */
++  UINT64 *out;
++  intptr_t delta;
++
++  if (cif->abi != FFI_UNIX)
++    return FFI_BAD_ABI;
++
++  out = (UINT64 *)closure->tramp;
++  delta = (intptr_t)ffi_closure_tile - (intptr_t)codeloc;
++
++  *out++ = ffi_template_tramp_tile[0] | create_JOffLong_X1(delta >> 3);
++#endif
++
++  closure->cif = cif;
++  closure->fun = fun;
++  closure->user_data = user_data;
++
++  invalidate_icache(closure->tramp, (char *)out - closure->tramp,
++                    getpagesize());
++
++  return FFI_OK;
++}
++
++
++/* This is called by the assembly wrapper for closures. This does
++   all of the work. On entry reg_args[0] holds the values the registers
++   had when the closure was invoked. On return reg_args[1] holds the register
++   values to be returned to the caller (many of which may be garbage). */
++void FFI_HIDDEN
++ffi_closure_tile_inner(ffi_closure *closure,
++                       ffi_sarg reg_args[2][NUM_ARG_REGS],
++                       ffi_sarg *stack_args)
++{
++  ffi_cif * const cif = closure->cif;
++  void ** const avalue = alloca(cif->nargs * sizeof(void *));
++  void *rvalue;
++  ffi_type ** const arg_types = cif->arg_types;
++  ffi_sarg * const reg_args_in = reg_args[0];
++  ffi_sarg * const reg_args_out = reg_args[1];
++  ffi_sarg * argp;
++  long i, arg_word, nargs = cif->nargs;
++  /* Use a union to guarantee proper alignment for double. */
++  union { ffi_sarg arg[NUM_ARG_REGS]; double d; UINT64 u64; } closure_ret;
++
++  /* Start out reading register arguments. */
++  argp = reg_args_in;
++
++  /* Copy the caller's structure return address to that the closure
++     returns the data directly to the caller.  */
++  if (cif->flags == FFI_TYPE_STRUCT)
++    {
++      /* Return by reference via hidden pointer. */
++      rvalue = (void *)(intptr_t)*argp++;
++      arg_word = 1;
++    }
++  else
++    {
++      /* Return the value in registers. */
++      rvalue = &closure_ret;
++      arg_word = 0;
++    }
++
++  /* Grab the addresses of the arguments. */
++  for (i = 0; i < nargs; i++)
++    {
++      ffi_type * const type = arg_types[i];
++      const size_t arg_size_in_words =
++        (type->size + FFI_SIZEOF_ARG - 1) / FFI_SIZEOF_ARG;
++
++#ifndef __tilegx__
++      /* Doubleword-aligned values are always in an even-number register
++         pair, or doubleword-aligned stack slot if out of registers. */
++      long align = arg_word & (type->alignment > FFI_SIZEOF_ARG);
++      argp += align;
++      arg_word += align;
++#endif
++
++      if (arg_word == NUM_ARG_REGS ||
++          (arg_word < NUM_ARG_REGS &&
++           arg_word + arg_size_in_words > NUM_ARG_REGS))
++        {
++          /* Switch to reading arguments from the stack. */
++          argp = stack_args;
++          arg_word = NUM_ARG_REGS;
++        }
++
++      avalue[i] = argp;
++      argp += arg_size_in_words;
++      arg_word += arg_size_in_words;
++    }
++
++  /* Invoke the closure.  */
++  closure->fun(cif, rvalue, avalue, closure->user_data);
++
++  if (cif->flags != FFI_TYPE_STRUCT)
++    {
++      /* Canonicalize for register representation. */
++      assign_to_ffi_arg(reg_args_out, &closure_ret, cif->rtype, 1);
++    }
++}
+diff -N -r -u ./empty/tile/ffitarget.h ./src/tile/ffitarget.h
+--- ./empty/tile/ffitarget.h	1969-12-31 19:00:00.000000000 -0500
++++ ./src/tile/ffitarget.h	2012-07-30 23:53:38.189720000 -0400
+@@ -0,0 +1,65 @@
++/* -----------------------------------------------------------------*-C-*-
++   ffitarget.h - Copyright (c) 2012 Tilera Corp.
++   Target configuration macros for TILE.
++
++   Permission is hereby granted, free of charge, to any person obtaining
++   a copy of this software and associated documentation files (the
++   ``Software''), to deal in the Software without restriction, including
++   without limitation the rights to use, copy, modify, merge, publish,
++   distribute, sublicense, and/or sell copies of the Software, and to
++   permit persons to whom the Software is furnished to do so, subject to
++   the following conditions:
++
++   The above copyright notice and this permission notice shall be included
++   in all copies or substantial portions of the Software.
++
++   THE SOFTWARE IS PROVIDED ``AS IS'', WITHOUT WARRANTY OF ANY KIND,
++   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++   NONINFRINGEMENT.  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
++   HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
++   WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
++   DEALINGS IN THE SOFTWARE.
++   ----------------------------------------------------------------------- */
++
++#ifndef LIBFFI_TARGET_H
++#define LIBFFI_TARGET_H
++
++#ifndef LIBFFI_H
++#error "Please do not include ffitarget.h directly into your source.  Use ffi.h instead."
++#endif
++
++#ifndef LIBFFI_ASM
++
++#include <arch/abi.h>
++
++typedef uint_reg_t ffi_arg;
++typedef int_reg_t  ffi_sarg;
++
++typedef enum ffi_abi {
++  FFI_FIRST_ABI = 0,
++  FFI_UNIX,
++  FFI_LAST_ABI,
++  FFI_DEFAULT_ABI = FFI_UNIX
++} ffi_abi;
++#endif
++
++/* ---- Definitions for closures ----------------------------------------- */
++#define FFI_CLOSURES 1
++
++#ifdef __tilegx__
++/* We always pass 8-byte values, even in -m32 mode. */
++# define FFI_SIZEOF_ARG 8
++# ifdef __LP64__
++#  define FFI_TRAMPOLINE_SIZE (8 * 5)  /* 5 bundles */
++# else
++#  define FFI_TRAMPOLINE_SIZE (8 * 3)  /* 3 bundles */
++# endif
++#else
++# define FFI_SIZEOF_ARG 4
++# define FFI_TRAMPOLINE_SIZE 8 /* 1 bundle */
++#endif
++#define FFI_NATIVE_RAW_API 0
++
++#endif
+diff -N -r -u ./empty/tile/tile.S ./src/tile/tile.S
+--- ./empty/tile/tile.S	1969-12-31 19:00:00.000000000 -0500
++++ ./src/tile/tile.S	2012-07-30 23:53:38.190722000 -0400
+@@ -0,0 +1,360 @@
++/* -----------------------------------------------------------------------
++   tile.S - Copyright (c) 2011 Tilera Corp.
++
++   Tilera TILEPro and TILE-Gx Foreign Function Interface
++
++   Permission is hereby granted, free of charge, to any person obtaining
++   a copy of this software and associated documentation files (the
++   ``Software''), to deal in the Software without restriction, including
++   without limitation the rights to use, copy, modify, merge, publish,
++   distribute, sublicense, and/or sell copies of the Software, and to
++   permit persons to whom the Software is furnished to do so, subject to
++   the following conditions:
++
++   The above copyright notice and this permission notice shall be included
++   in all copies or substantial portions of the Software.
++
++   THE SOFTWARE IS PROVIDED ``AS IS'', WITHOUT WARRANTY OF ANY KIND,
++   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++   NONINFRINGEMENT.  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
++   HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
++   WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
++   DEALINGS IN THE SOFTWARE.
++   ----------------------------------------------------------------------- */
++
++#define LIBFFI_ASM
++#include <fficonfig.h>
++#include <ffi.h>
++
++/* Number of bytes in a register. */
++#define REG_SIZE FFI_SIZEOF_ARG
++
++/* Number of bytes in stack linkage area for backtracing.
++
++   A note about the ABI: on entry to a procedure, sp points to a stack
++   slot where it must spill the return address if it's not a leaf.
++   REG_SIZE bytes beyond that is a slot owned by the caller which
++   contains the sp value that the caller had when it was originally
++   entered (i.e. the caller's frame pointer). */
++#define LINKAGE_SIZE (2 * REG_SIZE)
++
++/* The first 10 registers are used to pass arguments and return values. */
++#define NUM_ARG_REGS 10
++
++#ifdef __tilegx__
++#define SW st
++#define LW ld
++#define BGZT bgtzt
++#else
++#define SW sw
++#define LW lw
++#define BGZT bgzt
++#endif
++
++
++/* void ffi_call_tile (int_reg_t reg_args[NUM_ARG_REGS],
++                       const int_reg_t *stack_args,
++                       unsigned long stack_args_bytes,
++                       void (*fnaddr)(void));
++
++        On entry, REG_ARGS contain the outgoing register values,
++        and STACK_ARGS containts STACK_ARG_BYTES of additional values
++        to be passed on the stack. If STACK_ARG_BYTES is zero, then
++        STACK_ARGS is ignored.
++
++        When the invoked function returns, the values of r0-r9 are
++        blindly stored back into REG_ARGS for the caller to examine. */
++
++        .section .text.ffi_call_tile, "ax", @progbits
++        .align  8
++        .globl  ffi_call_tile
++        FFI_HIDDEN(ffi_call_tile)
++ffi_call_tile:
++
++/* Incoming arguments. */
++#define REG_ARGS                r0
++#define INCOMING_STACK_ARGS     r1
++#define STACK_ARG_BYTES         r2
++#define ORIG_FNADDR             r3
++
++/* Temporary values. */
++#define FRAME_SIZE              r10
++#define TMP                     r11
++#define TMP2                    r12
++#define OUTGOING_STACK_ARGS     r13
++#define REG_ADDR_PTR            r14
++#define RETURN_REG_ADDR         r15
++#define FNADDR                  r16
++
++        .cfi_startproc
++        {
++         /* Save return address. */
++         SW     sp, lr
++         .cfi_offset lr, 0
++         /* Prepare to spill incoming r52. */
++         addi   TMP, sp, -REG_SIZE
++         /* Increase frame size to have room to spill r52 and REG_ARGS.
++            The +7 is to round up mod 8. */
++         addi   FRAME_SIZE, STACK_ARG_BYTES, \
++                REG_SIZE + REG_SIZE + LINKAGE_SIZE + 7
++        }
++        {
++         /* Round stack frame size to a multiple of 8 to satisfy ABI. */
++         andi   FRAME_SIZE, FRAME_SIZE, -8
++         /* Compute where to spill REG_ARGS value. */
++         addi   TMP2, sp, -(REG_SIZE * 2)
++        }
++        {
++         /* Spill incoming r52. */
++         SW     TMP, r52
++         .cfi_offset r52, -REG_SIZE
++         /* Set up our frame pointer. */
++         move   r52, sp
++         .cfi_def_cfa_register r52
++         /* Push stack frame. */
++         sub    sp, sp, FRAME_SIZE
++        }
++        {
++         /* Prepare to set up stack linkage. */
++         addi   TMP, sp, REG_SIZE
++         /* Prepare to memcpy stack args. */
++         addi   OUTGOING_STACK_ARGS, sp, LINKAGE_SIZE
++         /* Save REG_ARGS which we will need after we call the subroutine. */
++         SW     TMP2, REG_ARGS
++        }
++        {
++         /* Set up linkage info to hold incoming stack pointer. */
++         SW     TMP, r52
++        }
++        {
++         /* Skip stack args memcpy if we don't have any stack args (common). */
++         blezt  STACK_ARG_BYTES, .Ldone_stack_args_memcpy
++        }
++
++.Lmemcpy_stack_args:
++        {
++         /* Load incoming argument from stack_args. */
++         LW     TMP, INCOMING_STACK_ARGS
++         addi   INCOMING_STACK_ARGS, INCOMING_STACK_ARGS, REG_SIZE
++        }
++        {
++         /* Store stack argument into outgoing stack argument area. */
++         SW     OUTGOING_STACK_ARGS, TMP
++         addi   OUTGOING_STACK_ARGS, OUTGOING_STACK_ARGS, REG_SIZE
++         addi   STACK_ARG_BYTES, STACK_ARG_BYTES, -REG_SIZE
++        }
++        {
++         BGZT   STACK_ARG_BYTES, .Lmemcpy_stack_args
++        }
++.Ldone_stack_args_memcpy:
++
++        {
++         /* Copy aside ORIG_FNADDR so we can overwrite its register. */
++         move   FNADDR, ORIG_FNADDR
++         /* Prepare to load argument registers. */
++         addi   REG_ADDR_PTR, r0, REG_SIZE
++         /* Load outgoing r0. */
++         LW     r0, r0
++        }
++
++        /* Load up argument registers from the REG_ARGS array. */
++#define LOAD_REG(REG, PTR) \
++        { \
++         LW     REG, PTR ; \
++         addi   PTR, PTR, REG_SIZE \
++        }
++
++        LOAD_REG(r1, REG_ADDR_PTR)
++        LOAD_REG(r2, REG_ADDR_PTR)
++        LOAD_REG(r3, REG_ADDR_PTR)
++        LOAD_REG(r4, REG_ADDR_PTR)
++        LOAD_REG(r5, REG_ADDR_PTR)
++        LOAD_REG(r6, REG_ADDR_PTR)
++        LOAD_REG(r7, REG_ADDR_PTR)
++        LOAD_REG(r8, REG_ADDR_PTR)
++        LOAD_REG(r9, REG_ADDR_PTR)
++
++        {
++         /* Call the subroutine. */
++         jalr   FNADDR
++        }
++
++        {
++         /* Restore original lr. */
++         LW     lr, r52
++         /* Prepare to recover ARGS, which we spilled earlier. */
++         addi   TMP, r52, -(2 * REG_SIZE)
++        }
++        {
++         /* Restore ARGS, so we can fill it in with the return regs r0-r9. */
++         LW     RETURN_REG_ADDR, TMP
++         /* Prepare to restore original r52. */
++         addi   TMP, r52, -REG_SIZE
++        }
++
++        {
++         /* Pop stack frame. */
++         move   sp, r52
++         /* Restore original r52. */
++         LW     r52, TMP
++        }
++
++#define STORE_REG(REG, PTR) \
++        { \
++         SW     PTR, REG ; \
++         addi   PTR, PTR, REG_SIZE \
++        }
++
++        /* Return all register values by reference. */
++        STORE_REG(r0, RETURN_REG_ADDR)
++        STORE_REG(r1, RETURN_REG_ADDR)
++        STORE_REG(r2, RETURN_REG_ADDR)
++        STORE_REG(r3, RETURN_REG_ADDR)
++        STORE_REG(r4, RETURN_REG_ADDR)
++        STORE_REG(r5, RETURN_REG_ADDR)
++        STORE_REG(r6, RETURN_REG_ADDR)
++        STORE_REG(r7, RETURN_REG_ADDR)
++        STORE_REG(r8, RETURN_REG_ADDR)
++        STORE_REG(r9, RETURN_REG_ADDR)
++
++        {
++         jrp    lr
++        }
++
++        .cfi_endproc
++        .size ffi_call_tile, .-ffi_call_tile
++
++/* ffi_closure_tile(...)
++
++   On entry, lr points to the closure plus 8 bytes, and r10
++   contains the actual return address.
++
++   This function simply dumps all register parameters into a stack array
++   and passes the closure, the registers array, and the stack arguments
++   to C code that does all of the actual closure processing. */
++
++        .section .text.ffi_closure_tile, "ax", @progbits
++        .align  8
++        .globl  ffi_closure_tile
++        FFI_HIDDEN(ffi_closure_tile)
++
++        .cfi_startproc
++/* Room to spill all NUM_ARG_REGS incoming registers, plus frame linkage. */
++#define CLOSURE_FRAME_SIZE (((NUM_ARG_REGS * REG_SIZE * 2 + LINKAGE_SIZE) + 7) & -8)
++ffi_closure_tile:
++        {
++#ifdef __tilegx__
++         st     sp, lr
++         .cfi_offset lr, 0
++#else
++         /* Save return address (in r10 due to closure stub wrapper). */
++         SW     sp, r10
++         .cfi_return_column r10
++         .cfi_offset r10, 0
++#endif
++         /* Compute address for stack frame linkage. */
++         addli   r10, sp, -(CLOSURE_FRAME_SIZE - REG_SIZE)
++        }
++        {
++         /* Save incoming stack pointer in linkage area. */
++         SW     r10, sp
++         .cfi_offset sp, -(CLOSURE_FRAME_SIZE - REG_SIZE)
++         /* Push a new stack frame. */
++         addli   sp, sp, -CLOSURE_FRAME_SIZE
++         .cfi_adjust_cfa_offset CLOSURE_FRAME_SIZE
++        }
++
++        {
++         /* Create pointer to where to start spilling registers. */
++         addi   r10, sp, LINKAGE_SIZE
++        }
++	
++        /* Spill all the incoming registers. */
++        STORE_REG(r0, r10)
++        STORE_REG(r1, r10)
++        STORE_REG(r2, r10)
++        STORE_REG(r3, r10)
++        STORE_REG(r4, r10)
++        STORE_REG(r5, r10)
++        STORE_REG(r6, r10)
++        STORE_REG(r7, r10)
++        STORE_REG(r8, r10)
++        {
++         /* Save r9. */
++         SW     r10, r9
++#ifdef __tilegx__
++         /* Pointer to closure is passed in r11. */
++         move  r0, r11
++#else
++         /* Compute pointer to the closure object. Because the closure
++            starts with a "jal ffi_closure_tile", we can just take the
++            value of lr (a phony return address pointing into the closure)
++            and subtract 8. */
++         addi   r0, lr, -8
++#endif
++         /* Compute a pointer to the register arguments we just spilled. */
++         addi   r1, sp, LINKAGE_SIZE
++        }
++        {
++         /* Compute a pointer to the extra stack arguments (if any). */
++         addli   r2, sp, CLOSURE_FRAME_SIZE + LINKAGE_SIZE
++         /* Call C code to deal with all of the grotty details. */
++         jal    ffi_closure_tile_inner
++        }
++        {
++         addli   r10, sp, CLOSURE_FRAME_SIZE
++        }
++        {
++         /* Restore the return address. */
++         LW     lr, r10
++         /* Compute pointer to registers array. */
++         addli   r10, sp, LINKAGE_SIZE + (NUM_ARG_REGS * REG_SIZE)
++        }
++        /* Return all the register values, which C code may have set. */
++        LOAD_REG(r0, r10)
++        LOAD_REG(r1, r10)
++        LOAD_REG(r2, r10)
++        LOAD_REG(r3, r10)
++        LOAD_REG(r4, r10)
++        LOAD_REG(r5, r10)
++        LOAD_REG(r6, r10)
++        LOAD_REG(r7, r10)
++        LOAD_REG(r8, r10)
++        LOAD_REG(r9, r10)
++        {
++         /* Pop the frame. */
++         addli   sp, sp, CLOSURE_FRAME_SIZE
++         jrp    lr
++        }
++
++        .cfi_endproc
++        .size   ffi_closure_tile, . - ffi_closure_tile
++
++
++/* What follows are code template instructions that get copied to the
++   closure trampoline by ffi_prep_closure_loc.  The zeroed operands
++   get replaced by their proper values at runtime. */
++
++        .section .text.ffi_template_tramp_tile, "ax", @progbits
++        .align  8
++        .globl  ffi_template_tramp_tile
++        FFI_HIDDEN(ffi_template_tramp_tile)
++ffi_template_tramp_tile:
++#ifdef __tilegx__
++        {
++          moveli r11, 0 /* backpatched to address of containing closure. */
++          moveli r10, 0 /* backpatched to ffi_closure_tile. */
++        }
++        /* Note: the following bundle gets generated multiple times
++           depending on the pointer value (esp. useful for -m32 mode). */
++        { shl16insli r11, r11, 0 ; shl16insli r10, r10, 0 }
++        { info 2+8 /* for backtracer: -> pc in lr, frame size 0 */ ; jr r10 }
++#else
++        /* 'jal .' yields a PC-relative offset of zero so we can OR in the
++           right offset at runtime. */
++        { move r10, lr ; jal . /* ffi_closure_tile */ }
++#endif
++
++        .size   ffi_template_tramp_tile, . - ffi_template_tramp_tile

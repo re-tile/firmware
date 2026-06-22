@@ -1,0 +1,198 @@
+#!/bin/bash -ex
+
+# Run this script to create the corresponding source subdir in the CWD.
+
+me=$(basename $0)
+DIR=$(basename $0 .get)
+if [ -d $DIR ]; then
+    echo "$me: Cannot replace existing directory '$DIR'." >&2
+    exit 1
+fi
+
+MD5SUM=3907331f6b978f15c5fdf1047bdaafcc
+FROM=http://distcache.freebsd.org/ports-distfiles
+ORIG=${DIR}_src.tgz
+
+if [ ! -f $ORIG ]; then
+    if [ -n "$DOWNLOAD_CACHE" -a -f "$DOWNLOAD_CACHE/$ORIG" ]; then
+        ORIG="$DOWNLOAD_CACHE/$ORIG"
+    else
+        curl -L $FROM/$ORIG > $ORIG.tmp
+        mv $ORIG.tmp $ORIG
+    fi
+fi
+
+if [ $MD5SUM != `md5sum $ORIG | cut -f1 -d' '` ]; then
+    echo "$me: Wrong md5sum for '$ORIG'." >&2
+    exit 1
+fi
+
+tar xf $ORIG
+
+cat $0 | patch -d $DIR -p1 -s
+
+exit 0
+
+# The actual Tilera patch starts here.
+
+--- source/include/tbb/machine/linux_common.h~	2010-05-04 04:30:27.000000000 -0400
++++ source/include/tbb/machine/linux_common.h	2011-06-04 10:19:17.699623000 -0400
+@@ -33,10 +33,12 @@
+ #include <stdint.h>
+ #include <unistd.h>
+ #include <sched.h>
++#include <time.h>
+ 
+ // Definition of __TBB_Yield()
+ #ifndef __TBB_Yield
+-#define __TBB_Yield()  sched_yield()
++#define __TBB_Yield() \
++  do { struct timespec _ts = { 0, 1000 }; nanosleep(&_ts, NULL); } while (0)
+ #endif
+ 
+ /* Futex definitions */
+--- source/include/tbb/tbb_machine.h      2010-08-13 09:41:47.812103000 -0400
++++ source/include/tbb/tbb_machine.h  2010-08-13 08:53:22.289303000 -0400
+@@ -63,6 +63,8 @@
+ #include "machine/linux_intel64.h"
+ #elif __ia64__
+ #include "machine/linux_ia64.h"
++#elif __tile__
++#include "machine/linux_tile.h"
+ #endif
+ 
+ #elif __APPLE__
+--- source/Makefile        2010-08-13 08:53:24.767229000 -0400
++++ source/Makefile 2010-08-16 10:56:10.059614000 -0400
+@@ -50,6 +50,11 @@
+ 	-$(MAKE) -C "$(work_dir)_release"  -r -f $(tbb_root)/build/Makefile.tbbmalloc cfg=release malloc_test tbb_root=$(tbb_root)
+ 	-$(MAKE) -C "$(work_dir)_release"  -r -f $(tbb_root)/build/Makefile.test cfg=release tbb_root=$(tbb_root) 
+ 
++.PHONY: build_test_apps
++build_test_apps:
++	-$(MAKE) -C "$(work_dir)_debug"  -r -f $(tbb_root)/build/Makefile.test cfg=debug tbb_root=$(tbb_root) build_test_apps
++	-$(MAKE) -C "$(work_dir)_release"  -r -f $(tbb_root)/build/Makefile.test cfg=release tbb_root=$(tbb_root) build_test_apps 
++
+ rml: mkdir
+ 	$(MAKE) -C "$(work_dir)_debug"  -r -f $(tbb_root)/build/Makefile.rml cfg=debug tbb_root=$(tbb_root)
+ 	$(MAKE) -C "$(work_dir)_release"  -r -f $(tbb_root)/build/Makefile.rml cfg=release tbb_root=$(tbb_root)
+
+--- source/build/Makefile.test	2010-08-13 08:53:24.780214000 -0400
++++ source/build/Makefile.test	2010-08-16 11:21:03.562573000 -0400
+@@ -187,12 +187,17 @@
+ endif
+ 
+ $(TEST_TBB_PLAIN.EXE): WARNING_KEY += $(TEST_WARNING_KEY)
++ 
++.PHONY: build_test_apps
++build_test_apps: $(TEST_TBB_PLAIN.EXE)
++
+ 
+ # Run tests that are in TASK_CPP_DIRECTLY_INCLUDED and TEST_TBB_PLAIN.EXE
+ # The test are ordered so that simpler components are tested first.
+ # If a component Y uses component X, then tests for Y should come after tests for X.
+ # Note that usually run_cmd is empty, and tests run directly
+ test_tbb_plain: $(TEST_PREREQUISITE) $(TASK_CPP_DIRECTLY_INCLUDED) $(TEST_TBB_PLAIN.EXE)
++	$(test_startup_cmd)
+ 	$(run_cmd) ./test_tbb_version.$(TEST_EXT) $(args)
+         # Checking TBB version first to make sure the following testing has anything in it
+ 	$(run_cmd) ./test_assembly.$(TEST_EXT) $(args)
+--- source/build/Makefile.tbbmalloc	2010-08-13 08:53:24.779215000 -0400
++++ source/build/Makefile.tbbmalloc	2010-08-16 11:56:30.570291000 -0400
+@@ -169,6 +169,7 @@
+ MALLOC_TESTS = $(MALLOC_MAIN_TESTS) $(MALLOC_OVERLOAD_TESTS) $(MALLOC_C_TESTS) test_malloc_whitebox.$(TEST_EXT) test_malloc_lib_unload.$(TEST_EXT)
+ # run_cmd is usually empty
+ malloc_test: $(call cross_suffix,$(MALLOC.DLL)) $(TEST_PREREQUISITE) $(MALLOC_TESTS)
++	$(test_startup_cmd)
+ 	$(run_cmd) ./test_malloc_lib_unload.$(TEST_EXT) $(args)
+ 	$(run_cmd) ./test_malloc_whitebox.$(TEST_EXT) $(args) 1:4
+ 	$(run_cmd) $(TEST_LAUNCHER) -l $(call cross_suffix,$(MALLOCPROXY.DLL)) test_malloc_overload.$(TEST_EXT) $(args)
+diff -ru --unidirectional-new-file ./build/tile_cross.inc patch/build/tile_cross.inc
+--- ./build/tile_cross.inc	1969-12-31 19:00:00.000000000 -0500
++++ patch/build/tile_cross.inc	2015-10-26 22:18:22.823177000 -0400
+@@ -0,0 +1,9 @@
++# This is a -*- Makefile -*-
++
++CPLUS = $(TILERA_ROOT)/bin/tile-g++
++CONLY = $(TILERA_ROOT)/bin/tile-gcc
++
++test_startup_cmd = $(TILERA_ROOT)/bin/tile-monitor --quit
++
++run_cmd = $(TILERA_ROOT)/bin/tile-monitor \
++  --resume --mount-tile /usr --here -- 
+diff -ru --unidirectional-new-file ./include/tbb/machine/linux_tile.h patch/include/tbb/machine/linux_tile.h
+--- ./include/tbb/machine/linux_tile.h	1969-12-31 19:00:00.000000000 -0500
++++ patch/include/tbb/machine/linux_tile.h	2015-10-26 22:18:22.825175000 -0400
+@@ -0,0 +1,72 @@
++/*
++    Copyright 2009 Tilera Corporation.  All Rights Reserved.
++
++    This file is part of Threading Building Blocks.
++
++    Threading Building Blocks is free software; you can redistribute it
++    and/or modify it under the terms of the GNU General Public License
++    version 2 as published by the Free Software Foundation.
++
++    Threading Building Blocks is distributed in the hope that it will be
++    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
++    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++    GNU General Public License for more details.
++
++    You should have received a copy of the GNU General Public License
++    along with Threading Building Blocks; if not, write to the Free Software
++    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
++
++    As a special exception, you may use this file as part of a free software
++    library without restriction.  Specifically, if other files instantiate
++    templates or use macros or inline functions from this file, or you compile
++    this file and link it with other files to produce an executable, this
++    file does not by itself cause the resulting executable to be covered by
++    the GNU General Public License.  This exception does not however
++    invalidate any other reasons why the executable file might be covered by
++    the GNU General Public License.
++*/
++
++#ifndef __TBB_machine_H
++#error Do not include this file directly; include tbb_machine.h instead
++#endif
++
++#include "linux_common.h"
++#include <arch/atomic.h>
++
++#ifdef __LP64__
++#define __TBB_WORDSIZE 8
++#else
++#define __TBB_WORDSIZE 4
++#endif
++
++#define __TBB_BIG_ENDIAN 0
++
++static inline uint32_t __TBB_machine_cmpswp4(volatile void* ptr, uint32_t value,
++                                             uint32_t comparand )
++{
++  arch_atomic_compiler_barrier();
++  return arch_atomic_val_compare_and_exchange((uint32_t*)ptr, comparand, value);
++}
++
++static inline uint64_t __TBB_machine_cmpswp8(volatile void* ptr, uint64_t value,
++                                             uint64_t comparand )
++{
++  arch_atomic_compiler_barrier();
++  return arch_atomic_val_compare_and_exchange((uint64_t*)ptr, comparand, value);
++}
++
++
++#define __TBB_CompareAndSwap4(P,V,C) __TBB_machine_cmpswp4(P,V,C)
++#define __TBB_CompareAndSwap8(P,V,C) __TBB_machine_cmpswp8(P,V,C)
++
++#ifdef __LP64__
++#define __TBB_CompareAndSwapW(P,V,C) __TBB_machine_cmpswp8(P,V,C)
++#else
++#define __TBB_CompareAndSwapW(P,V,C) __TBB_machine_cmpswp4(P,V,C)
++#endif
++
++#define __TBB_Store8(P,V) arch_atomic_write((P), (V))
++#define __TBB_Load8(P) *(P)
++
++#define __TBB_release_consistency_helper() __insn_mf()
++#define __TBB_rel_acq_fence() __insn_mf()

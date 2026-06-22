@@ -1,0 +1,134 @@
+# TILE-Gx Events
+
+event:0x180 counters:0,1,2,3 um:zero minimum:500 name:ZERO : Always zero - no event ever happens
+event:0x181 counters:0,1,2,3 um:zero minimum:500 name:ONE : Always one - an event occurs every cycle
+event:0x182 counters:0,1,2,3 um:zero minimum:0 name:PASS_WRITTEN : The event indicates that the PASS SPR was written
+event:0x183 counters:0,1,2,3 um:zero minimum:0 name:FAIL_WRITTEN : The event indicates that the FAIL SPR was written
+event:0x184 counters:0,1,2,3 um:zero minimum:0 name:DONE_WRITTEN : The event indicates that the DONE SPR was written
+event:0x186 counters:0,1,2,3 um:zero minimum:500 name:CBOX_QUIESCED : An event occurs every cycle that a tile is in the coherence traffic quiesced state
+event:0x187 counters:0,1,2,3 um:zero minimum:500 name:TRACE_SAMPLE : An event occurs every time a diagnostic trace sample is triggered.
+event:0xc4 counters:0,1,2,3 um:zero minimum:500 name:L1D_FILL_STALL : The event occurs when a memory operation stalls due to L1 DCache being busy doing a fill.
+event:0xc5 counters:0,1,2,3 um:zero minimum:500 name:CBOX_FULL_STALL : The event occurs when a memory operation stalls due to Cbox queue being full.
+event:0xc6 counters:0,1,2,3 um:zero minimum:500 name:LOAD_HIT_STALL : The event occurs when an instruction 2 cycles after a load stalls due to a source operand being the destination.  The L1 DCache hit latency is two cycles, so the instruction would stall on a miss but not on a hit.
+event:0xc7 counters:0,1,2,3 um:zero minimum:500 name:LOAD_STALL : The event occurs when an instruction stalls due to a source operand being the destination of a load instruction.  This event happens on all cycles that stall except for the one 2 cycles after the load, which is counted by LOAD_HIT_STALL event.
+event:0xc8 counters:0,1,2,3 um:zero minimum:500 name:ALU_SRC_STALL : The event occurs when an instruction stalls due to a source operand being the destination of an ALU instruction.
+event:0xc9 counters:0,1,2,3 um:zero minimum:500 name:IDN_SRC_STALL : The event occurs when an instruction stalls due to IDN source register not available.
+event:0xca counters:0,1,2,3 um:zero minimum:500 name:UDN_SRC_STALL : The event occurs when an instruction stalls due to UDN source register not available.
+event:0xcb counters:0,1,2,3 um:zero minimum:500 name:MF_STALL : The event during stalls for the Memory Fence instruction.
+event:0xcc counters:0,1,2,3 um:zero minimum:500 name:SLOW_SPR_STALL : The event occurs during stalls to slow SPR access.
+event:0xcd counters:0,1,2,3 um:zero minimum:500 name:NETWORK_DEST_STALL : The event occurs when a valid instruction in pipeline Decode stage stalls due to network destination full.
+event:0xce counters:0,1,2,3 um:zero minimum:500 name:INSTRUCTION_STALL : The event occurs when a valid instruction in pipeline Decode stage stalls for any reason.
+event:0xcf counters:0,1,2,3 um:zero minimum:500 name:PFB_HIT_IN_PFB : The event occurs when an instruction lookup hits in prefetch buffer, already in PFB.
+event:0xd0 counters:0,1,2,3 um:zero minimum:500 name:PFB_HIT : The event occurs when an instruction lookup hits in prefetch buffer, either in the PFB or in-flight.
+event:0xd1 counters:0,1,2,3 um:zero minimum:500 name:CBOX_RESP : The event occurs when Cbox responds with fill data, either demand or prefetch.
+event:0xd3 counters:0,1,2,3 um:zero minimum:500 name:CBOX_REQ : The event occurs when an instruction request is sent to Cbox, either demand or prefetch.
+event:0xd4 counters:0,1,2,3 um:zero minimum:500 name:ITLB_MISS_INTERRUPT : The event occurs when an ITLB_MISS interrupt is taken.
+event:0xd5 counters:0,1,2,3 um:zero minimum:500 name:INTERRUPT : The event occurs when any interrupt is taken.
+event:0xd6 counters:0,1,2,3 um:zero minimum:500 name:ICACHE_FILL_PEND : The event occurs each cycle and Icache fill is pending.
+event:0xd7 counters:0,1,2,3 um:zero minimum:500 name:ICACHE_FILL : The event occurs each time a line in Icache is filled.
+event:0xd8 counters:0,1,2,3 um:zero minimum:500 name:WAY_MISPREDICT : The event occurs when the Icache has to correct the way prediction due to a mispredict.
+event:0xd9 counters:0,1,2,3 um:zero minimum:500 name:COND_BRANCH_PRED_CORRECT : The event occurs when a correctly predicted branch instruction is committed.
+event:0xda counters:0,1,2,3 um:zero minimum:500 name:COND_BRANCH_PRED_INCORRECT : The event occurs when an incorrectly predicted branch instruction is committed.
+event:0xdb counters:0,1,2,3 um:zero minimum:500 name:INSTRUCTION_BUNDLE : The event occurs when there is a valid instruction in pipeline WB stage (e.g. when an instruction is committed).
+event:0xdd counters:0,1,2,3 um:zero minimum:500 name:USED_RAS : The event occurs when the Return Address Stack is used for jump instruction.
+event:0xde counters:0,1,2,3 um:zero minimum:500 name:RAS_CORRECT : The event occurs when the value from Return Address Stack was correct.
+event:0xdf counters:0,1,2,3 um:zero minimum:500 name:COND_BRANCH_NO_PREDICT : The event occurs when a predicted taken branch that did not do a prediction due to bypassing branch predict pipeline is committed.
+event:0x40 counters:0,1,2,3 um:zero minimum:500 name:TLB : The event occurs when a data memory operation is issued and the data translation lookaside buffer (DTLB) is used to translate the virtual address into the physical address.
+event:0x41 counters:0,1,2,3 um:zero minimum:500 name:READ : The event occurs when a load is issued.
+event:0x42 counters:0,1,2,3 um:zero minimum:500 name:WRITE : The event occurs when a store is issued.
+event:0x43 counters:0,1,2,3 um:zero minimum:500 name:TLB_EXCEPTION : The event occurs when the address of a data stream memory operation causes a Data TLB Exception including TLB Misses and protection violations.
+event:0x44 counters:0,1,2,3 um:zero minimum:500 name:READ_MISS : The event occurs when a load is issued and data is not returned from the level 1 data cache.
+event:0x45 counters:0,1,2,3 um:zero minimum:500 name:WRITE_MISS : The event occurs when a store is issued and the 16-byte aligned block (level 1 data cache line size) containing the address is not present at the level 1 data cache.
+event:0x46 counters:0,1,2,3 um:zero minimum:500 name:L1_OPCODE_VALID : The event occurs when the L1 data cache system processes a request.
+event:0x47 counters:0,1,2,3 um:zero minimum:500 name:L1_OPCODE_LD_VALID : The event occurs when the L1 data cache system processes a request with the opcode LD.
+event:0x48 counters:0,1,2,3 um:zero minimum:500 name:L1_OPCODE_ST_VALID : The event occurs when the L1 data cache system processes a request with the opcode ST.
+event:0x49 counters:0,1,2,3 um:zero minimum:500 name:L1_OPCODE_ATOMIC_VALID : The event occurs when the L1 data cache system processes a request with the opcode ATOMIC.
+event:0x4a counters:0,1,2,3 um:zero minimum:500 name:L1_OPCODE_FLUSH_VALID : The event occurs when the L1 data cache system processes a request with the opcode FLUSH.
+event:0x4b counters:0,1,2,3 um:zero minimum:500 name:L1_OPCODE_INV_VALID : The event occurs when the L1 data cache system processes a request with the opcode INV.
+event:0x4c counters:0,1,2,3 um:zero minimum:500 name:L1_OPCODE_FINV_VALID : The event occurs when the L1 data cache system processes a request with the opcode FINV.
+event:0x4d counters:0,1,2,3 um:zero minimum:500 name:L1_OPCODE_MF_VALID : The event occurs when the L1 data cache system processes a request with the opcode MF.
+event:0x4e counters:0,1,2,3 um:zero minimum:500 name:L1_OPCODE_PFETCH_VALID : The event occurs when the L1 data cache system processes a request with the opcode PFETCH.
+event:0x4f counters:0,1,2,3 um:zero minimum:500 name:L1_OPCODE_WH64_VALID : The event occurs when the L1 data cache system processes a request with the opcode WH64.
+event:0x50 counters:0,1,2,3 um:zero minimum:500 name:L1_OPCODE_DTLBPR_VALID : The event occurs when the L1 data cache system processes a request with the opcode DTLBPR.
+event:0x51 counters:0,1,2,3 um:zero minimum:500 name:L1_OPCODE_FWB_VALID : The event occurs when the L1 data cache system processes a request with the opcode FWB.
+event:0x52 counters:0,1,2,3 um:zero minimum:500 name:L1_OPCODE_LD_NON_TEMPORAL_VALID : The event occurs when the L1 data cache system processes a request with the opcode LD_NON_TEMPORAL.
+event:0x53 counters:0,1,2,3 um:zero minimum:500 name:L1_OPCODE_ST_NON_TEMPORAL_VALID : The event occurs when the L1 data cache system processes a request with the opcode ST_NON_TEMPORAL.
+event:0x80 counters:0,1,2,3 um:zero minimum:500 name:SNOOP_INCREMENT_READ : The event occurs when a read request is received from another tile off the SDN and the Level 3 cache will track the share state.
+event:0x81 counters:0,1,2,3 um:zero minimum:500 name:SNOOP_NON_INCREMENT_READ : The event occurs when a read request is received from another tile off the SDN and the Level 3 cache will not track the share state.
+event:0x82 counters:0,1,2,3 um:zero minimum:500 name:SNOOP_WRITE : The event occurs when a write request is received from another tile off the SDN.
+event:0x83 counters:0,1,2,3 um:zero minimum:500 name:SNOOP_IO_READ : The event occurs when a read request is received from an IO device off the SDN.
+event:0x84 counters:0,1,2,3 um:zero minimum:500 name:SNOOP_IO_WRITE : The event occurs when a write request is received from an IO device off the SDN.
+event:0x85 counters:0,1,2,3 um:zero minimum:500 name:LOCAL_DATA_READ : The event occurs when a data read request is received from the main processor and the Level 3 cache resides in the tile.
+event:0x86 counters:0,1,2,3 um:zero minimum:500 name:LOCAL_WRITE : The event occurs when a write request is received from the main processor and the Level 3 cache resides in the tile.
+event:0x87 counters:0,1,2,3 um:zero minimum:500 name:LOCAL_INSTRUCTION_READ : The event occurs when an instruction read request is received from the main processor and the Level 3 cache resides in the tile.
+event:0x88 counters:0,1,2,3 um:zero minimum:500 name:REMOTE_DATA_READ : The event occurs when a data read request is received from the main processor and the Level 3 cache resides in another tile.
+event:0x89 counters:0,1,2,3 um:zero minimum:500 name:REMOTE_WRITE : The event occurs when a write request is received from the main processor and the Level 3 cache resides in another tile.
+event:0x8a counters:0,1,2,3 um:zero minimum:500 name:REMOTE_INSTRUCTION_READ : The event occurs when an instruction read request is received from the main processor and the Level 3 cache resides in another tile.
+event:0x8b counters:0,1,2,3 um:zero minimum:500 name:COHERENCE_INVALIDATION : The event occurs when a coherence invalidation is received from another tile off the QDN.
+event:0x8c counters:0,1,2,3 um:zero minimum:500 name:SNOOP_INCREMENT_READ_MISS : The event occurs when a read request is received from another tile off the SDN and misses the Level 3 cache. The level 3 cache will track the share state.
+event:0x8d counters:0,1,2,3 um:zero minimum:500 name:SNOOP_NON_INCREMENT_READ_MISS : The event occurs when a read request is received from another tile off the SDN and misses the Level 3 cache. The Level 3 cache will not track the share state.
+event:0x8e counters:0,1,2,3 um:zero minimum:500 name:SNOOP_WRITE_MISS : The event occurs when a write request is received from another tile off the SDN and misses the Level 3 cache.
+event:0x8f counters:0,1,2,3 um:zero minimum:500 name:SNOOP_IO_READ_MISS : The event occurs when a read request is received from an IO device off the SDN and misses the Level 3 cache.
+event:0x90 counters:0,1,2,3 um:zero minimum:500 name:SNOOP_IO_WRITE_MISS : The event occurs when a write request is received from an IO device off the SDN and misses the Level 3 cache.
+event:0x91 counters:0,1,2,3 um:zero minimum:500 name:LOCAL_DATA_READ_MISS : The event occurs when a data read request is received from the main processor and misses the Level 3 cache resided in the tile.
+event:0x92 counters:0,1,2,3 um:zero minimum:500 name:LOCAL_WRITE_MISS : The event occurs when a write request is received from the main processor and misses the Level 3 cache resided in the tile.
+event:0x93 counters:0,1,2,3 um:zero minimum:500 name:LOCAL_INSTRUCTION_READ_MISS : The event occurs when an instruction read request is received from the main processor and misses the Level 3 cache resided in the tile.
+event:0x94 counters:0,1,2,3 um:zero minimum:500 name:REMOTE_DATA_READ_MISS : The event occurs when a data read request is received from the main processor and misses the Level 2 cache. The Level 3 cache resides in another tile.
+event:0x95 counters:0,1,2,3 um:zero minimum:500 name:REMOTE_WRITE_MISS : The event occurs when a write request is received from the main processor and misses the Level 2 cache. The Level 3 cache resides in another tile.
+event:0x96 counters:0,1,2,3 um:zero minimum:500 name:REMOTE_INSTRUCTION_READ_MISS : The event occurs when an instruction read request is received from the main processor and misses the Level 2 cache. The Level 3 cache resides in another tile.
+event:0x97 counters:0,1,2,3 um:zero minimum:500 name:COHERENCE_INVALIDATION_HIT : The event occurs when a coherence invalidation is received from another tile off the QDN and hits the level 2 cache.
+event:0x98 counters:0,1,2,3 um:zero minimum:500 name:CACHE_WRITEBACK : The event occurs when a cache writeback to main memory, including victim writes or explicit flushes, leaves the tile.
+event:0x99 counters:0,1,2,3 um:zero minimum:500 name:SDN_STARVED : The event occurs when a snoop is received and the controller enters the SDN starved condition.
+event:0x9a counters:0,1,2,3 um:zero minimum:500 name:RDN_STARVED : The event occurs when the controller enters the RDN starved condition.
+event:0x9b counters:0,1,2,3 um:zero minimum:500 name:QDN_STARVED : The event occurs when the controller enters the QDN starved condition.
+event:0x9c counters:0,1,2,3 um:zero minimum:500 name:SKF_STARVED : The event occurs when the controller enters the skid FIFO starved condition.
+event:0x9d counters:0,1,2,3 um:zero minimum:500 name:RTF_STARVED : The event occurs when the controller enters the re-try FIFO starved condition.
+event:0x9e counters:0,1,2,3 um:zero minimum:500 name:IREQ_STARVED : The event occurs when the controller enters the instruction stream starved condition.
+event:0xa1 counters:0,1,2,3 um:zero minimum:500 name:LOCAL_WRITE_BUFFER_ALLOC : The event occurs when a write request is received from the main processor and allocates a write buffer in the Level 3 cache resided in the tile.
+event:0xa2 counters:0,1,2,3 um:zero minimum:500 name:REMOTE_WRITE_BUFFER_ALLOC : The event occurs when a write request is received from the main processor and allocates a write buffer in the Level 2 cache resided in the tile. The Level 3 cache resides in another tile
+event:0xa3 counters:0,1,2,3 um:zero minimum:500 name:ARB_VALID : The event occurs when a request is processed in the L2 pipeline.
+event:0xa4 counters:0,1,2,3 um:zero minimum:500 name:MDF_WRITE : The event occurs when a request generates a MDF write.
+event:0xa5 counters:0,1,2,3 um:zero minimum:500 name:LDB_READ : The event occurs when a request generates a Load Buffer read.
+event:0xa6 counters:0,1,2,3 um:zero minimum:500 name:L2_OPCODE_LD_VALID : The event occurs when the L2 cache system processes a request with the opcode LD.
+event:0xa7 counters:0,1,2,3 um:zero minimum:500 name:L2_OPCODE_ST_VALID : The event occurs when the L2 cache system processes a request with the opcode ST.
+event:0xa8 counters:0,1,2,3 um:zero minimum:500 name:L2_OPCODE_ATOMIC_VALID : The event occurs when the L2 cache system processes a request with the opcode ATOMIC.
+event:0xa9 counters:0,1,2,3 um:zero minimum:500 name:L2_OPCODE_FLUSH_VALID : The event occurs when the L2 cache system processes a request with the opcode FLUSH.
+event:0xaa counters:0,1,2,3 um:zero minimum:500 name:L2_OPCODE_INV_VALID : The event occurs when the L2 cache system processes a request with the opcode INV.
+event:0xab counters:0,1,2,3 um:zero minimum:500 name:L2_OPCODE_FINV_VALID : The event occurs when the L2 cache system processes a request with the opcode FINV.
+event:0xac counters:0,1,2,3 um:zero minimum:500 name:L2_OPCODE_MF_VALID : The event occurs when the L2 cache system processes a request with the opcode MF.
+event:0xad counters:0,1,2,3 um:zero minimum:500 name:L2_OPCODE_PFETCH_VALID : The event occurs when the L2 cache system processes a request with the opcode PFETCH.
+event:0xae counters:0,1,2,3 um:zero minimum:500 name:L2_OPCODE_WH64_VALID : The event occurs when the L2 cache system processes a request with the opcode WH64.
+event:0xaf counters:0,1,2,3 um:zero minimum:500 name:L2_OPCODE_FWB_VALID : The event occurs when the L2 cache system processes a request with the opcode FWB.
+event:0xb0 counters:0,1,2,3 um:zero minimum:500 name:L2_OPCODE_LD_NON_TEMPORAL_VALID : The event occurs when the L2 cache system processes a request with the opcode LD_NON_TEMPORAL.
+event:0xb1 counters:0,1,2,3 um:zero minimum:500 name:L2_OPCODE_ST_NON_TEMPORAL_VALID : The event occurs when the L2 cache system processes a request with the opcode ST_NON_TEMPORAL.
+event:0xb2 counters:0,1,2,3 um:zero minimum:500 name:L2_OPCODE_LD_NOFIL_VALID : The event occurs when the L2 cache system processes a request with the opcode LD_NOFIL.
+event:0xb3 counters:0,1,2,3 um:zero minimum:500 name:L2_OPCODE_LD_NOFIL_NON_TEMPORAL_VALID : The event occurs when the L2 cache system processes a request with the opcode LD_NOFIL_NON_TEMPORAL.
+event:0xb4 counters:0,1,2,3 um:zero minimum:500 name:L2_OPCODE_RDN_VALID : The event occurs when the L2 cache system processes a request from RDN network.
+event:0xb5 counters:0,1,2,3 um:zero minimum:500 name:L2_OPCODE_QDN_VALID : The event occurs when the L2 cache system processes a request from QDN network.
+event:0xb6 counters:0,1,2,3 um:zero minimum:500 name:L2_OPCODE_IO_READ_VALID : The event occurs when the L2 cache system processes an IO read request.
+event:0xb7 counters:0,1,2,3 um:zero minimum:500 name:L2_OPCODE_IO_WRITE_VALID : The event occurs when the L2 cache system processes an IO write request.
+event:0xb8 counters:0,1,2,3 um:zero minimum:500 name:L2_OPCODE_I_STREAM_VALID : The event occurs when the L2 cache system processes an I-stream request.
+event:0xb9 counters:0,1,2,3 um:zero minimum:500 name:L2_OPCODE_MDF_VALID : The event occurs when the L2 cache system processes an MDF request.
+event:0xba counters:0,1,2,3 um:zero minimum:500 name:L2_OPCODE_IREQ_IV_VALID : The event occurs when the L2 cache system processes a request with the opcode IREQ_IV.
+event:0x00 counters:0,1,2,3 um:zero minimum:500 name:UDN_PACKET_SENT : Main processor finished sending a packet to the UDN.
+event:0x01 counters:0,1,2,3 um:zero minimum:500 name:UDN_WORD_SENT : UDN word sent to an output port.  Participating ports are selected with the UDN_EVT_PORT_SEL field.
+event:0x02 counters:0,1,2,3 um:zero minimum:500 name:UDN_BUBBLE : Bubble detected on an output port.  A bubble is defined as a cycle in which no data is being sent, but the first word of a packet has already traversed the switch.  Participating ports are selected with the UDN_EVT_PORT_SEL field.
+event:0x03 counters:0,1,2,3 um:zero minimum:500 name:UDN_CONGESTION : Out of credit on an output port.  Participating ports are selected with the UDN_EVT_PORT_SEL field.
+event:0x04 counters:0,1,2,3 um:zero minimum:500 name:IDN_PACKET_SENT : Main processor finished sending a packet to the IDN.
+event:0x05 counters:0,1,2,3 um:zero minimum:500 name:IDN_WORD_SENT : IDN word sent to an output port.  Participating ports are selected with the IDN_EVT_PORT_SEL field.
+event:0x06 counters:0,1,2,3 um:zero minimum:500 name:IDN_BUBBLE : Bubble detected on an output port.  A bubble is defined as a cycle in which no data is being sent, but the first word of a packet has already traversed the switch.  Participating ports are selected with the IDN_EVT_PORT_SEL field.
+event:0x07 counters:0,1,2,3 um:zero minimum:500 name:IDN_CONGESTION : Out of credit on an output port.  Participating ports are selected with the IDN_EVT_PORT_SEL field.
+event:0x08 counters:0,1,2,3 um:zero minimum:500 name:RDN_PACKET_SENT : Main processor finished sending a packet to the RDN.
+event:0x09 counters:0,1,2,3 um:zero minimum:500 name:RDN_WORD_SENT : RDN word sent to an output port.  Participating ports are selected with the RDN_EVT_PORT_SEL field.
+event:0x0a counters:0,1,2,3 um:zero minimum:500 name:RDN_BUBBLE : Bubble detected on an output port.  A bubble is defined as a cycle in which no data is being sent, but the first word of a packet has already traversed the switch.  Participating ports are selected with the RDN_EVT_PORT_SEL field.
+event:0x0b counters:0,1,2,3 um:zero minimum:500 name:RDN_CONGESTION : Out of credit on an output port.  Participating ports are selected with the RDN_EVT_PORT_SEL field.
+event:0x0c counters:0,1,2,3 um:zero minimum:500 name:SDN_PACKET_SENT : Main processor finished sending a packet to the SDN.
+event:0x0d counters:0,1,2,3 um:zero minimum:500 name:SDN_WORD_SENT : SDN word sent to an output port.  Participating ports are selected with the SDN_EVT_PORT_SEL field.
+event:0x0e counters:0,1,2,3 um:zero minimum:500 name:SDN_BUBBLE : Bubble detected on an output port.  A bubble is defined as a cycle in which no data is being sent, but the first word of a packet has already traversed the switch.  Participating ports are selected with the SDN_EVT_PORT_SEL field.
+event:0x0f counters:0,1,2,3 um:zero minimum:500 name:SDN_CONGESTION : Out of credit on an output port.  Participating ports are selected with the SDN_EVT_PORT_SEL field.
+event:0x10 counters:0,1,2,3 um:zero minimum:500 name:QDN_PACKET_SENT : Main processor finished sending a packet to the QDN.
+event:0x11 counters:0,1,2,3 um:zero minimum:500 name:QDN_WORD_SENT : QDN word sent to an output port.  Participating ports are selected with the QDN_EVT_PORT_SEL field.
+event:0x12 counters:0,1,2,3 um:zero minimum:500 name:QDN_BUBBLE : Bubble detected on an output port.  A bubble is defined as a cycle in which no data is being sent, but the first word of a packet has already traversed the switch.  Participating ports are selected with the QDN_EVT_PORT_SEL field.
+event:0x13 counters:0,1,2,3 um:zero minimum:500 name:QDN_CONGESTION : Out of credit on an output port.  Participating ports are selected with the QDN_EVT_PORT_SEL field.
+event:0x14 counters:0,1,2,3 um:zero minimum:500 name:UDN_DEMUX_STALL : UDN Demux stalled due to buffer full
+event:0x15 counters:0,1,2,3 um:zero minimum:500 name:IDN_DEMUX_STALL : IDN Demux stalled due to buffer full

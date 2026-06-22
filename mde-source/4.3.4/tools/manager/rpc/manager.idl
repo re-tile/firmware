@@ -1,0 +1,598 @@
+// Copyright 2014 Tilera Corporation. All Rights Reserved.
+//
+//   The source code contained or described herein and all documents
+//   related to the source code ("Material") are owned by Tilera
+//   Corporation or its suppliers or licensors.  Title to the Material
+//   remains with Tilera Corporation or its suppliers and licensors. The
+//   software is licensed under the Tilera MDE License.
+//
+//   Unless otherwise agreed by Tilera in writing, you may not remove or
+//   alter this notice or any other notice embedded in Materials by Tilera
+//   or Tilera's suppliers or licensors in any way.
+
+// i = IDE
+// m = monitor
+// r = reporter (part of tile-sim)
+// s = shepherd (or watchdog)
+// f = fuse daemon
+// w = shepherd (from "task")
+// t = task
+
+
+
+//*** From ide, through monitor, to shepherd (mostly) ***//
+
+
+// Request protocol.
+m->s, code = 0x4000
+  int request_protocol();
+
+// Request exit.
+i->m, m->s, code = 0x4010
+  void request_exit();
+
+// Request "note_idle" query.
+i->m->s, m->s, code = 0x4050
+  void request_idle();
+
+// Request "note_size" query.
+m->s, code = 0x4060
+  void request_size();
+
+// Set the clock using the given seconds and nanoseconds.
+// Requires the shepherd to be running as the superuser.
+m->s, code = 0x4070
+  void set_clock(uint sec, uint nsec);
+
+// Set the number of huge pages.
+// The string may be a single number to set the total number,
+// or may be comma-separated to set the number per controller.
+// Requires the shepherd to be running as the superuser.
+m->s, code = 0x4080
+  void huge_pages(string descr);
+
+// Request close (PCI only).
+m->s, code = 0x4090
+  void request_close();
+
+
+// Launch a new application.
+// ISSUE: Should this return an "app"?
+i->m, m->s, code = 0x4100
+  (int pid) launch(string[] argv, string[] envp,
+                   string[] tiles, string[] debug);
+
+// Kill all applications.
+i->m->s, m->s, code = 0x4180
+  void kill_everyone();
+
+
+// Debug an existing process.
+i->m->s, m->s, code = 0x4200
+  void debug_attach(int pid);
+
+// Debug the next spawned process, and all its children.
+i->m->s, m->s, code = 0x4220
+  void debug_next();
+
+// Debug all (future) processes using the given executables.
+i->m->s, m->s, code = 0x4230
+  void debug_executables(string[] executables);
+
+// Debug all (future) processes using the given executable.
+i->m->s, m->s, code = 0x4235
+  void debug_executable(string executable);
+
+
+// Watch an existing process.
+i->m->s, m->s, code = 0x4280
+  void watch_process(int pid);
+
+
+// Provide some bytes that the given process can read from stdin.
+i->m->s, m->s, code = 0x4400
+  void provide_stdin(int pid, uint8[] bytes);
+
+
+// Set the current working directory.
+// FIXME: The monitor is not "intercepting" this call from the IDE,
+// and so it might get confused about certain relative paths.
+i->m->s, m->s, code = 0x4450
+  void set_cwd(string dir);
+
+
+// Start the uploading of a file.
+i->m->s, m->s, code = 0x4500
+  void upload_start(string path);
+
+// Continue the uploading of a file.
+i->m->s, m->s, code = 0x4501
+  void upload_append(string path, uint8[] bytes);
+
+// Finish the uploading of a file.
+i->m->s, m->s, code = 0x4502
+  void upload_finish(string path, uint mode);
+
+// Abort the uploading of a file.
+i->m->s, m->s, code = 0x4503
+  void upload_cancel(string path);
+
+
+// Write to a file.
+i->m->s, m->s, code = 0x4505
+  void file_write(string path, uint8[] bytes);
+
+
+// Delete the directory "path".
+i->m->s, m->s, code = 0x4510
+  void file_rmdir(string path);
+
+// Delete the file (or symlink) "path".
+i->m->s, m->s, code = 0x4520
+  void file_unlink(string path);
+
+// Create the directory "path".
+i->m->s, m->s, code = 0x4530
+  void file_mkdir(string path);
+
+// Create the symlink "path", pointing to "target".
+// WARNING: Argument order is reversed from "symlink()"
+i->m->s, m->s, code = 0x4540
+  void file_symlink(string path, string target);
+
+// Rename "path" to "newpath".
+i->m->s, m->s, code = 0x4550
+  void file_rename(string path, string newpath);
+
+// Get the "mode" for the given path.
+// WARNING: This uses "lstat()" (not "stat()").
+i->m->s, m->s, code = 0x4570
+  uint file_get_mode(string path);
+
+// Get the "children" of a directory.
+i->m->s, m->s, code = 0x4580
+  string[] file_get_children(string path);
+
+// Get the "size" of the given file.
+i->m->s, m->s, code = 0x4585
+  uint64 file_get_size(string path);
+
+// Get some bytes from a given file.
+i->m->s, m->s, code = 0x4590
+  uint8[] file_get_bytes(string path, uint64 offset, uint length);
+
+// Get the "target" for the given symlink.
+i->m->s, m->s, code = 0x4595
+  string file_get_target(string path);
+
+
+// HACK: Forbid the use of some tiles.
+m->s, code = 0x4600
+  void forbid_tiles(string[] tiles);
+
+// HACK: Allow unlimited fds for spawned processes.
+m->s, code = 0x4610
+  void unlimit_fds();
+
+// HACK: Spread out the threads of the next process.
+m->s, code = 0x4620
+  void spread_threads();
+
+// HACK: Set/clear "functional" mode.
+m->s, code = 0x4630
+  void set_functional(bool functional);
+
+// HACK: Specify shepherd affinity.
+m->s, code = 0x4640
+  void shepherd_tiles(string[] tiles);
+
+// HACK: Create an echo server.
+m->s, code = 0x4650
+  void echo_port(uint16 port);
+
+// HACK: Use a hacky hardwall.
+m->s, code = 0x4660
+  void hacky_hardwall();
+
+// HACK: Ignore protocol in "syscall_greet()".
+m->s, code = 0x4670
+  void ignore_protocol();
+
+// HACK: Count cycles.
+m->s, code = 0x4680
+  void count_cycles();
+
+// HACK: Let the shepherd know we are waiting for an app to exit
+// (or for all apps to exit).  Improves determinism on simulator.
+m->s, code = 0x4690
+  void awaiting_app(int app);
+
+// HACK: Become interactive.
+m->s, code = 0x4695
+  void become_interactive();
+
+
+// HACK: Run a synchronous shell command using "system()".
+// FIXME: The shepherd freezes while this is running.
+m->s, code = 0x4700
+  void system(string command);
+
+
+// Forward traffic (or EOF).
+m->s, code = 0x4720
+  void forward_m2s(uint id, uint8[] bytes);
+
+// Listen on a tile port for connections to forward to a host port.
+m->s, code = 0x4730
+  void forward_listen(uint16 tile_port, uint16 host_port);
+
+
+// Tunnel traffic (or EOF).
+m->s, code = 0x4750
+  void tunnel_m2s(uint id, uint8[] bytes);
+
+// Establish a new tunnel connection.
+m->s, code = 0x4760
+  void tunnel_connect(uint id, uint16 tile_port);
+
+
+// Debugger RSP traffic (or EOF).
+m->s, code = 0x4780
+  void rsp_m2s(int pid, uint8[] bytes);
+
+
+// Export a host directory using FUSE.
+m->s, s->s, code = 0x4800
+  void mount_fuse(string host_dir, string tile_dir);
+
+
+// HACK: Ping (aka poke).
+i->m->s, m->s, code = 0x4900
+  void ping();
+
+// HACK: Dump shepherd state.
+m->s, code = 0x4910
+  void dump();
+
+// HACK: Set verbosity.
+m->s, code = 0x4930
+  void set_verbosity(int verbosity);
+
+// HACK: Set "debug_on_crash" flag.
+i->m->s, m->s, code = 0x4950
+  void set_debug_on_crash(bool flag);
+
+
+// Handle a command.
+i->m, code = 0x49F0
+  void handle_command(string command);
+
+
+
+//*** From monitor to reporter (aka simulator) ***//
+
+
+m->r, code = 0x4A00
+  void sim_map_file(string host_file, string tile_file);
+
+m->r, code = 0x4A10
+  void sim_map_dir(string host_dir, string tile_dir);
+
+m->r, code = 0x4A20
+  void sim_request_target_info();
+
+m->r, code = 0x4A30
+  void sim_finished_commands();
+
+m->r, code = 0x4A40
+  void sim_heartbeat_start();
+
+m->r, code = 0x4A80
+  void sim_handle_command(string[] args);
+
+m->r, code = 0x4AB0
+  void sim_bmd_attach(uint16 tile_x, uint16 tile_y);
+
+m->r, code = 0x4AC0
+  void sim_bmd_rsp(uint16 tile_x, uint16 tile_y, uint8[] data);
+
+
+
+//*** From shepherd, through monitor, to ide (mostly) ***//
+
+
+// Sent when the shepherd exits.
+s->m, code = 0x5000
+  void note_quit();
+
+// Sent after "request_idle", when the shepherd is "idle".
+s->m, s->m->i, code = 0x5050
+  void note_idle();
+
+// Sent after "request_size", to convey the chip size.
+s->m, code = 0x5060
+  void note_size(uint version, uint16 width, uint16 height);
+
+
+// Sent whenever the given process gets a "fatal" signal.
+// ISSUE: Should this be renamed to "process_signalled()"?
+s->m, s->m->i, code = 0x5130
+  void note_crash(int pid, int signal);
+
+s->m, code = 0x5150
+  void note_attach(int pid);
+
+
+// Sent whenever the given process wants to be debugged.
+// The "commands" should be sent to the resulting "gdb".
+m->i, code = 0x5250
+  void request_debug_process(int pid, string[] commands);
+
+// Sent whenever the given tile wants to be debugged.
+// The "commands" should be sent to the resulting "gdb".
+m->i, code = 0x5260
+  void request_debug_tile(uint16 x, uint16 y, string[] commands);
+
+
+s->m, s->m->i, code = 0x5300
+  void application_created(int app);
+ 
+s->m, s->m->i, code = 0x5301
+  void application_destroyed(int app);
+ 
+ 
+s->m, s->m->i, code = 0x5310
+  void process_created(int pid, string exe);
+ 
+s->m, s->m->i, code = 0x5311
+  void process_destroyed(int pid, int status);
+ 
+s->m, s->m->i, code = 0x5312
+  void process_joined(int pid, int app);
+ 
+s->m, s->m->i, code = 0x5313
+  void process_execed(int pid, string exe);
+ 
+ 
+s->m, s->m->i, code = 0x5320
+  void thread_created(int pid, int tid, uint16 x, uint16 y);
+ 
+s->m, s->m->i, code = 0x5321
+  void thread_destroyed(int pid, int tid);
+ 
+s->m, s->m->i, code = 0x5322
+  void thread_moved(int pid, int tid, uint16 x, uint16 y);
+ 
+s->m, s->m->i, code = 0x5323
+  void thread_transitioned(int pid, int tid, string state);
+ 
+ 
+
+// Sent whenever a process writes to stdout.
+// Also used for shepherd/daemon stderr (with pid zero).
+s->m, m->i, code = 0x5410
+  void console_stdout(int pid, uint8[] bytes);
+
+// Sent whenever a process writes to stdout.
+// Also used for shepherd/daemon stderr (with pid zero).
+s->m, m->i, code = 0x5420
+  void console_stderr(int pid, uint8[] bytes);
+
+
+// HACK: Ask the monitor to set the CWD, and then execute a command,
+// feeding it the given stdin, and returning its status, along with
+// any stdout/stderr.
+s->m, code = 0x5700
+  (int status, uint8[] out, uint8[] err)
+  hacky_execute(string cwd, string[] argv, string[] envp, uint8[] in);
+
+
+// HACK: Sent after "count_cycles", to convey elapsed cycles.
+s->m, code = 0x5710
+  void note_cycles(uint64 cycles);
+
+
+// Forward traffic (or EOF).
+s->m, code = 0x5720
+  void forward_s2m(uint id, uint8[] bytes);
+
+// Establish a new forward connection.
+s->m, code = 0x5730
+  void forward_connect(uint id, uint16 host_port);
+
+
+// Tunnel traffic (or EOF).
+s->m, code = 0x5750
+  void tunnel_s2m(uint id, uint8[] bytes);
+
+
+// Debugger RSP traffic (or EOF).
+s->m, code = 0x5780
+  void rsp_s2m(int pid, uint8[] bytes);
+
+
+// Reports tile-monitor host, pid, etc. to IDE
+m->i, code = 0x5900
+  void monitor_info(string hostname, int pid);
+
+// Reports tile-monitor command line to IDE
+m->i, code = 0x5901
+  void monitor_command_line(string[] args);
+
+// Reports IDE-specific data, such as the launch id that invoked tile-monitor
+m->i, code = 0x5902
+  void ide_info(string launch_id);
+
+
+//*** From reporter (aka simulator), through monitor, to ide ***//
+
+
+r->m, m->i, code = 0x5A20
+  void target_info(string info);
+
+// Sent when a profile file is generated, either by:
+// - tile-monitor itself, by running profile-analyze
+// - tile-sim writing out a profile.xml at the end of its run
+r->m, m->i, code = 0x5A30
+  void profile_file_generated(string pathname);
+
+r->m, code = 0x5A40
+  void mon_heartbeat_done();
+
+r->m, code = 0x5AB0
+  void mon_bmd_attach(uint16 tile_x, uint16 tile_y, string[] path_addr_pairs);
+
+r->m, code = 0x5AC0
+  void mon_bmd_rsp(uint16 tile_x, uint16 tile_y, uint8[] data);
+
+
+
+//*** From daemon to monitor (through watchdog) ***//
+
+
+f->s, code = 0x6000
+  void fuse_init();
+
+f->m, code = 0x6010
+  (uint64 dev,
+   uint64 ino,
+   uint64 mode,
+   uint64 nlink,
+   uint64 uid,
+   uint64 gid,
+   uint64 rdev,
+   uint64 size,
+   uint64 blksize,
+   uint64 blocks,
+   uint64 atime,
+   uint64 atimensec,
+   uint64 mtime,
+   uint64 mtimensec,
+   uint64 ctime,
+   uint64 ctimensec)
+  fuse_getattr(string path);
+
+f->m, code = 0x6020
+  (uint64 bsize,
+   uint64 frsize,
+   uint64 blocks,
+   uint64 bfree,
+   uint64 bavail,
+   uint64 files,
+   uint64 ffree,
+   uint64 favail,
+   uint64 fsid,
+   uint64 flag,
+   uint64 namemax)
+  fuse_statvfs(string path);
+
+f->m, code = 0x6030
+  void fuse_access(string path, int mask);
+
+f->m, code = 0x6050
+  string[] fuse_readdir(string path);
+
+f->m, code = 0x6080
+  string fuse_readlink(string path);
+
+f->m, code = 0x6100
+  void fuse_mknod(string path, uint mode, uint64 rdev);
+
+f->m, code = 0x6110
+  void fuse_mkdir(string path, uint mode);
+
+f->m, code = 0x6120
+  void fuse_rmdir(string path);
+
+f->m, code = 0x6130
+  void fuse_unlink(string path);
+
+f->m, code = 0x6140
+  void fuse_rename(string path, string newpath);
+
+f->m, code = 0x6150
+  void fuse_link(string path, string newpath);
+
+f->m, code = 0x6160
+  void fuse_symlink(string target, string path);
+
+f->m, code = 0x6170
+  void fuse_chmod(string path, uint mode);
+
+f->m, code = 0x6180
+  void fuse_chown(string path, uint uid, uint gid);
+
+f->m, code = 0x6190
+  void fuse_truncate(string path, uint64 size);
+
+f->m, code = 0x6195
+  void fuse_utimens(string path, uint s0, uint n0, uint s1, uint n1);
+
+f->m, code = 0x6300
+  void fuse_create(string path, int flags, uint mode);
+
+f->m, code = 0x6310
+  void fuse_open(string path, int flags);
+
+f->m, code = 0x6320
+  uint8[] fuse_read(string path, uint64 offset, uint size);
+
+f->m, code = 0x6330
+  uint fuse_write(string path, uint64 offset, uint8[] bytes);
+
+
+
+//*** From monitor to another monitor ***//
+
+// Request quit.
+m->m, code = 0x6800
+  void peer_quit();
+
+// Barrier.
+m->m, code = 0x6810
+  void peer_barrier();
+
+m->m, code = 0x6840
+  void peer_heartbeat();
+
+
+
+//*** From reporter to monitor to another monitor to reporter ***//
+
+// Transmit packet.
+r->m, m->m, m->r, code = 0x6A00
+  void shim_traffic(string shim, uint8[] bytes);
+
+
+
+//*** From process to shepherd ***//
+
+
+// Greet the shepherd.
+t->w, code = 0x7F00
+  void task_greet(uint magic_number);
+
+// Set the "watch forked children" flag for a thread.
+t->w, code = 0x7F10
+  int task_watch_forked_children(int tid, int flag);
+
+// Set the "assume impending exec" flag for a thread.
+t->w, code = 0x7F20
+  int task_assume_impending_exec(int tid, int flag);
+
+// Terminate the app.
+t->w, code = 0x7F30
+  void task_terminate_app();
+
+//--// Wait on a barrier.
+//--t->w, code = 0x7F80
+//--  void task_barrier_wait(int num);
+
+// Transmit standard console streams.
+// NOTE: Includes three "magic fd" arguments.
+t->w, code = 0x7FF0
+  void task_console_streams();
+
+// Initialize a new socket.
+t->w, code = 0x7FFF
+  void task_init(int pid);

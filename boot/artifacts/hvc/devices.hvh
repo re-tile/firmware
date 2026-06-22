@@ -1,0 +1,43 @@
+# This file supports various things related to "devices".
+
+# Include all possible devices.  Don't complain if any are not found.
+# 
+device? comp/0
+device? comp/1
+device? crypto/0
+device? crypto/1
+device? gpio/0
+device? i2cm/0
+device? i2cm/1
+device? i2cm/2
+device? mpipe/0
+device? mpipe/1
+device? sensor
+device? srom/0
+device? trio/0
+device? trio/1
+if defined(USB_DEV)
+device? usb_dev/0
+else
+device? usb_host/0
+endif
+device? usb_host/1
+
+# Optionally enable watchdog.
+if defined(WATCHDOG) && $WATCHDOG
+device watchdog
+endif
+
+ifdef MEMPROF_TILE
+# Optionally enable memprof using a given dedicated tile.
+device memprof memprof
+  dedicated $MEMPROF_TILE
+elif defined(MEMPROF)
+# Optionally enable memprof using the default shared tile.
+device memprof memprof_shared
+endif
+
+# Optionally enable the second onchip UART.
+if defined(UART_1) && $UART_1
+device uart/1
+endif

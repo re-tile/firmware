@@ -1,0 +1,37 @@
+//
+// Copyright 2014 Tilera Corporation. All Rights Reserved.
+//
+//   The source code contained or described herein and all documents
+//   related to the source code ("Material") are owned by Tilera
+//   Corporation or its suppliers or licensors.  Title to the Material
+//   remains with Tilera Corporation or its suppliers and licensors. The
+//   software is licensed under the Tilera MDE License.
+//
+//   Unless otherwise agreed by Tilera in writing, you may not remove or
+//   alter this notice or any other notice embedded in Materials by Tilera
+//   or Tilera's suppliers or licensors in any way.
+//
+
+// Various parameters needed by the generator
+env prefix gxio_mpipe_info
+env hvarg mpipe_state_t* ms
+env hvarg int svc_dom
+env allinclude hv/drv_mpipe_intf.h
+env hvinclude tilegx/drivers/mpipe/mpipe.h
+env userinclude gxio/mpipe.h
+env linuxinclude asm/page.h
+env linuxinclude gxio/kiorpc.h
+env linuxinclude gxio/mpipe.h
+
+
+code = 0x1250
+
+// Translate a link name to a mpipe instance number.  Returns the instance
+// number or a negative error code.
+int instance_aux(_gxio_mpipe_link_name_t name);
+
+// Enumerate a link name & MAC address.  Returns an error code if index is
+// out of range.
+read
+int enumerate_aux(OFFSET idx, _gxio_mpipe_link_name_t* name,
+                 _gxio_mpipe_link_mac_t* mac);

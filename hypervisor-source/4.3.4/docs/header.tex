@@ -1,0 +1,163 @@
+\documentclass[11pt]{book}
+
+\usepackage{makeidx}
+\usepackage{graphicx}
+\usepackage{multicol}
+\usepackage{float}
+\usepackage{textcomp}
+\usepackage{alltt}
+\usepackage{times}
+\usepackage{fancyhdr}
+\usepackage{tilera}
+\ifx\pdfoutput\undefined
+ \usepackage[ps2pdf,
+            pagebackref=true,
+            colorlinks=true,
+            linkcolor=blue
+           ]{hyperref}
+ \usepackage{pspicture}
+\else
+ \usepackage[pdftex,
+            pagebackref=true,
+            colorlinks=true,
+            linkcolor=blue
+           ]{hyperref}
+\fi
+@packages@
+
+\makeindex
+\setcounter{tocdepth}{2}
+
+\setlength{\topmargin}{0cm}
+\setlength{\textwidth}{16.5cm}
+\setlength{\topskip}{0cm}
+% \setlength{\footskip}{0.5cm}
+\setlength{\oddsidemargin}{0.2cm}
+\setlength{\evensidemargin}{0cm}
+\setlength{\textheight}{21cm}
+\setlength{\parindent}{0cm}
+
+\definecolor{TileraGreen}{rgb}{0.31,0.66,0.18}
+\renewcommand{\headrule}{\vbox to 0.3pt{\hbox to \headwidth{\textcolor{TileraGreen}\hrulefill}\vss}}
+\renewcommand{\footrule}{\vbox to 0.3pt{\hbox to \headwidth{\textcolor{TileraGreen}\hrulefill}\vss}}
+
+\fancyhead{} % clear all header fields
+\fancyhead[LE]{\leftmark} % show chapter name on left side of even page headers
+\fancyhead[RO]{\rightmark} % show section name on right side of odd page headers
+
+\fancyfoot{} % clear all footer fields
+\fancyfoot[LE,RO]{\textsf{\textit{\thepage}}} % print page no. in sans serif, italic font
+\fancyfoot[LO,RE]{\textsf{\textit{@title@}}} % print title in sans serif, italic font
+\fancyfoot[C]{\scriptsize \slshape ~\\Tilera Confidential---Subject to Change Without Notice}
+
+% redefine plain page style to allow Tilera standard footers on the first page of a chapter
+\fancypagestyle{plain}{%
+  \fancyhf{} % clear all header and footer fields
+  \renewcommand{\headrule}{} % no head rule on first page
+  \fancyfoot[LE,RO]{\textsf{\textit{\thepage}}}
+  \fancyfoot[LO,RE]{\textsf{\textit{@title@}}} % print title in sans serif, italic font
+  \fancyfoot[C]{\scriptsize \slshape ~\\Tilera Confidential---Subject to Change Without Notice}
+}
+
+\begin{document}
+\frontmatter
+
+\begin{titlepage}
+\includegraphics[scale=1.75,viewport=5.5cm 11.5cm 0 0]{TileraLogo}
+\hfill
+
+\begin{flushright}
+\vspace*{11cm}
+{\Huge \sc Multicore}\\
+\vspace*{0.5cm}
+{\Huge \sc Development}\\
+\vspace*{0.5cm}
+{\Huge \sc Environment}\\
+\vspace*{2cm}
+{\Huge \sc @title@}\\
+\vspace*{1cm}
+{\sc Release @version@\\Doc. No. @doc_number@\\ {\today} \\Tilera Corporation}
+\end{flushright}
+\pagebreak
+
+\pagestyle{empty} % copyright page uses small font
+{\small 
+\copyright\ Copyright 2014 Tilera Corporation. All rights reserved.
+Printed in the United States of America.
+
+The information contained in this document is the property of Tilera
+Corporation. It has been released under Non-Disclosure Agreement. Any
+unauthorized review, use, disclosure or distribution is strictly
+prohibited. 
+
+No part of this book may be reproduced, stored in a retrieval system,
+or transmitted in any form or by any means, electronic, mechanical,
+photocopying, recording, or otherwise, except as may be expressly
+permitted by the applicable copyright statutes or in writing by the
+Publisher.
+
+The following are registered trademarks of Tilera Corporation: Tilera
+and the Tilera logo.  The following are trademarks of Tilera
+Corporation: Embedding Multicore, The Multicore Company, Tile
+Processor, TILE Architecture, TILE64, TILEPro, TILEPro36, TILEPro64,
+TILExpress, TILExpress-64, TILExpressPro-64, TILExpress-20G,
+TILExpressPro-20G, TILExpressPro-22G, iMesh, TileDirect, TILEmpower,
+TILEmpower-Gx, TILEncore, TILEncorePro, TILEncore-Gx, TILE-Gx,
+TILE-Gx16, TILE-Gx36, TILE-Gx64, TILE-Gx100, TILE-Gx3000, TILE-Gx5000,
+TILE-Gx8000, DDC (Dynamic Distributed Cache), Multicore Development
+Environment, Gentle Slope Programming, iLib, TMC (Tilera Multicore
+Components), hardwall, Zero Overhead Linux (ZOL), MiCA (Multicore
+iMesh Coprocessing Accelerator), and mPIPE (multicore Programmable
+Intelligent Packet Engine). All other trademarks and/or registered
+trademarks are the property of their respective owners.
+
+Third-party software: The Tilera IDE makes use of the BeanShell
+scripting library. Source code for the BeanShell library can be found
+at the BeanShell website (http://www.beanshell.org/developer.html).
+
+The following is a trademark of Marvell Semiconductor, Inc.:
+Distributed Switching Architecture (DSA).
+
+This document contains advance information on Tilera products that are
+in development, sampling or initial production phases. This
+information and specifications contained herein are subject to change
+without notice at the discretion of Tilera Corporation.
+
+No license, express or implied by estoppels or otherwise, to any
+intellectual property is granted by this document. Tilera disclaims
+any express or implied warranty relating to the sale and/or use of
+Tilera products, including liability or warranties relating to fitness
+for a particular purpose, merchantability or infringement of any
+patent, copyright or other intellectual property right.
+
+Products described in this document are NOT intended for use in
+medical, life support, or other hazardous uses where malfunction could
+result in death or bodily injury.
+
+THE INFORMATION CONTAINED IN THIS DOCUMENT IS PROVIDED ON AN ``AS
+IS'' BASIS. Tilera assumes no liability for damages arising directly
+or indirectly from any use of the information contained in this
+document.
+} % end small font
+
+$datetime \\
+
+\begin{center}
+\begin{tabular}{@{}c@{}}
+\hline
+{\textbf{\textsf{Tilera Corporation}}}\\
+{\textbf{\textsf{Information: info@tilera.com}}}\\
+{\textbf{\textsf{Website: http://www.tilera.com}}}\\
+\hline
+\end{tabular}
+\end{center}
+
+\end{titlepage}
+
+% \input{preface}
+
+\pagestyle{fancy}
+\tableofcontents
+\pagebreak
+
+\mainmatter

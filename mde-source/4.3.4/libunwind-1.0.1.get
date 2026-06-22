@@ -1,0 +1,2779 @@
+#!/bin/bash -ex
+
+# Run this script to create the corresponding source subdir in the CWD.
+
+me=$(basename $0)
+DIR=$(basename $0 .get)
+if [ -d $DIR ]; then
+    echo "$me: Cannot replace existing directory '$DIR'." >&2
+    exit 1
+fi
+
+MD5SUM=993e47cca7315e22239c3e0d987e94e0
+FROM=http://gnu.mirrors.pair.com/savannah/savannah/libunwind
+ORIG=$DIR.tar.gz
+
+if [ ! -f $ORIG ]; then
+    if [ -n "$DOWNLOAD_CACHE" -a -f "$DOWNLOAD_CACHE/$ORIG" ]; then
+        ORIG="$DOWNLOAD_CACHE/$ORIG"
+    else
+        curl -L $FROM/$ORIG > $ORIG.tmp
+        mv $ORIG.tmp $ORIG
+    fi
+fi
+
+if [ $MD5SUM != `md5sum $ORIG | cut -f1 -d' '` ]; then
+    echo "$me: Wrong md5sum for '$ORIG'." >&2
+    exit 1
+fi
+
+tar xf $ORIG
+
+cat $0 | patch -d $DIR -p1 -s
+
+# Update "config.guess" and "config.sub" files.
+TRT=`uname -p | sed -e "s,tile.*,," -e "s,..*,$TILERA_ROOT/tile,"`
+cd $DIR
+for name in config.guess config.sub; do
+    for path in `find . -name $name`; do
+        echo "Updating '$path'..."
+        cp -f $TRT/usr/lib/rpm/$name $path
+    done
+done
+
+# Regenerate configure, Makefile.in, etc from autoconf masters.
+automake
+autoreconf
+
+exit 0
+
+# The actual Tilera patch starts here.
+
+From 6d294a9715cf521b8c11c35e0802576da9240fda Mon Sep 17 00:00:00 2001
+From: Your Namegit <zliu@gx-1.internal.tilera.com>
+Date: Fri, 18 Jul 2014 10:25:50 -0400
+Subject: [PATCH 1/3] commit Tilegx support.
+
+---
+ Makefile.am                        |    8 +-
+ configure.in                       |    5 +-
+ include/libunwind-tilegx.h         |  179 ++++++++++++++++++++
+ include/libunwind.h                |    2 +
+ include/remote.h                   |    2 +
+ include/tdep-tilegx/dwarf-config.h |   50 ++++++
+ include/tdep-tilegx/jmpbuf.h       |   32 ++++
+ include/tdep-tilegx/libunwind_i.h  |  318 ++++++++++++++++++++++++++++++++++++
+ include/tdep/dwarf-config.h        |    2 +
+ include/tdep/jmpbuf.h              |    2 +
+ include/tdep/libunwind_i.h         |    2 +
+ src/Makefile.am                    |   35 ++++
+ src/ptrace/_UPT_find_proc_info.c   |    3 +-
+ src/ptrace/_UPT_reg_offset.c       |   62 +++++++
+ src/setjmp/longjmp.c               |   11 +-
+ src/tilegx/Gcreate_addr_space.c    |   65 ++++++++
+ src/tilegx/Gget_proc_info.c        |   47 ++++++
+ src/tilegx/Gget_save_loc.c         |   65 ++++++++
+ src/tilegx/Gglobal.c               |   67 ++++++++
+ src/tilegx/Ginit.c                 |  205 +++++++++++++++++++++++
+ src/tilegx/Ginit_local.c           |   54 ++++++
+ src/tilegx/Ginit_remote.c          |   56 +++++++
+ src/tilegx/Gis_signal_frame.c      |  113 +++++++++++++
+ src/tilegx/Gregs.c                 |   66 ++++++++
+ src/tilegx/Gresume.c               |  141 ++++++++++++++++
+ src/tilegx/Gstep.c                 |   56 +++++++
+ src/tilegx/Lcreate_addr_space.c    |    5 +
+ src/tilegx/Lget_proc_info.c        |    5 +
+ src/tilegx/Lget_save_loc.c         |    5 +
+ src/tilegx/Lglobal.c               |    5 +
+ src/tilegx/Linit.c                 |    5 +
+ src/tilegx/Linit_local.c           |    5 +
+ src/tilegx/Linit_remote.c          |    5 +
+ src/tilegx/Lis_signal_frame.c      |    5 +
+ src/tilegx/Lregs.c                 |    5 +
+ src/tilegx/Lresume.c               |    5 +
+ src/tilegx/Lstep.c                 |    5 +
+ src/tilegx/elfxx.c                 |   27 +++
+ src/tilegx/gen-offsets.c           |   30 ++++
+ src/tilegx/getcontext.S            |  112 +++++++++++++
+ src/tilegx/init.h                  |   58 +++++++
+ src/tilegx/is_fpreg.c              |   33 ++++
+ src/tilegx/offsets.h               |   12 ++
+ src/tilegx/regname.c               |   52 ++++++
+ src/tilegx/siglongjmp.S            |    8 +
+ src/tilegx/unwind_i.h              |   44 +++++
+ tests/check-namespace.sh.in        |   15 ++
+ tests/flush-cache.S                |   14 ++
+ 48 files changed, 2104 insertions(+), 4 deletions(-)
+ create mode 100644 include/libunwind-tilegx.h
+ create mode 100644 include/tdep-tilegx/dwarf-config.h
+ create mode 100644 include/tdep-tilegx/jmpbuf.h
+ create mode 100644 include/tdep-tilegx/libunwind_i.h
+ create mode 100644 src/tilegx/Gcreate_addr_space.c
+ create mode 100644 src/tilegx/Gget_proc_info.c
+ create mode 100644 src/tilegx/Gget_save_loc.c
+ create mode 100644 src/tilegx/Gglobal.c
+ create mode 100644 src/tilegx/Ginit.c
+ create mode 100644 src/tilegx/Ginit_local.c
+ create mode 100644 src/tilegx/Ginit_remote.c
+ create mode 100644 src/tilegx/Gis_signal_frame.c
+ create mode 100644 src/tilegx/Gregs.c
+ create mode 100644 src/tilegx/Gresume.c
+ create mode 100644 src/tilegx/Gstep.c
+ create mode 100644 src/tilegx/Lcreate_addr_space.c
+ create mode 100644 src/tilegx/Lget_proc_info.c
+ create mode 100644 src/tilegx/Lget_save_loc.c
+ create mode 100644 src/tilegx/Lglobal.c
+ create mode 100644 src/tilegx/Linit.c
+ create mode 100644 src/tilegx/Linit_local.c
+ create mode 100644 src/tilegx/Linit_remote.c
+ create mode 100644 src/tilegx/Lis_signal_frame.c
+ create mode 100644 src/tilegx/Lregs.c
+ create mode 100644 src/tilegx/Lresume.c
+ create mode 100644 src/tilegx/Lstep.c
+ create mode 100644 src/tilegx/elfxx.c
+ create mode 100644 src/tilegx/gen-offsets.c
+ create mode 100644 src/tilegx/getcontext.S
+ create mode 100644 src/tilegx/init.h
+ create mode 100644 src/tilegx/is_fpreg.c
+ create mode 100644 src/tilegx/offsets.h
+ create mode 100644 src/tilegx/regname.c
+ create mode 100644 src/tilegx/siglongjmp.S
+ create mode 100644 src/tilegx/unwind_i.h
+
+diff --git a/Makefile.am b/Makefile.am
+index 1434c0c..ab7bfa3 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -12,6 +12,9 @@ endif
+ if ARCH_MIPS
+ include_HEADERS += include/libunwind-mips.h
+ endif
++if ARCH_TILEGX
++include_HEADERS += include/libunwind-tilegx.h
++endif
+ if ARCH_X86
+ include_HEADERS += include/libunwind-x86.h
+ endif
+@@ -31,7 +34,8 @@ endif
+ 
+ nodist_include_HEADERS = include/libunwind-common.h
+ 
+-SUBDIRS = src tests doc
++SUBDIRS = src tests
++#doc
+ 
+ noinst_HEADERS = include/dwarf.h include/dwarf_i.h include/dwarf-eh.h	\
+ 	include/libunwind_i.h include/mempool.h				\
+@@ -44,6 +48,8 @@ noinst_HEADERS = include/dwarf.h include/dwarf_i.h include/dwarf-eh.h	\
+ 	include/tdep-hppa/jmpbuf.h include/tdep-hppa/dwarf-config.h	\
+ 	include/tdep-mips/libunwind_i.h					\
+ 	include/tdep-mips/jmpbuf.h include/tdep-mips/dwarf-config.h	\
++	include/tdep-tilegx/libunwind_i.h				\
++	include/tdep-tilegx/jmpbuf.h include/tdep-tilegx/dwarf-config.h	\
+ 	include/tdep-x86/libunwind_i.h					\
+ 	include/tdep-x86/jmpbuf.h include/tdep-x86/dwarf-config.h	\
+ 	include/tdep-x86_64/libunwind_i.h				\
+diff --git a/configure.in b/configure.in
+index 40d13bf..2212161 100644
+--- a/configure.in
++++ b/configure.in
+@@ -103,6 +103,7 @@ get_arch() {
+   mips*) echo mips;;
+   powerpc*) is_gcc_m64;;
+   amd64) echo x86_64;;
++  tile*) echo tilegx;;
+   *) echo $1;;
+  esac
+ }
+@@ -129,6 +130,7 @@ AM_CONDITIONAL(ARCH_X86, test x$target_arch = xx86)
+ AM_CONDITIONAL(ARCH_X86_64, test x$target_arch = xx86_64)
+ AM_CONDITIONAL(ARCH_PPC32, test x$target_arch = xppc32)
+ AM_CONDITIONAL(ARCH_PPC64, test x$target_arch = xppc64)
++AM_CONDITIONAL(ARCH_TILEGX, test x$target_arch = xtilegx)
+ AM_CONDITIONAL(OS_LINUX, expr x$target_os : xlinux >/dev/null)
+ AM_CONDITIONAL(OS_HPUX, expr x$target_os : xhpux >/dev/null)
+ AM_CONDITIONAL(OS_FREEBSD, expr x$target_os : xfreebsd >/dev/null)
+@@ -136,7 +138,7 @@ AM_CONDITIONAL(OS_FREEBSD, expr x$target_os : xfreebsd >/dev/null)
+ AC_MSG_CHECKING([for ELF helper width])
+ case "${target_arch}" in
+ (arm|hppa|ppc32|x86)   use_elf32=yes; AC_MSG_RESULT([32]);;
+-(ia64|ppc64|x86_64)    use_elf64=yes; AC_MSG_RESULT([64]);;
++(ia64|ppc64|x86_64|tilegx)    use_elf64=yes; AC_MSG_RESULT([64]);;
+ (mips)                 use_elfxx=yes; AC_MSG_RESULT([xx]);;
+ *)                     AC_MSG_ERROR([Unknown ELF target: ${target_arch}])
+ esac
+@@ -189,6 +191,7 @@ case $target_arch in
+   x86*) enable_cxx_exceptions=no;;
+   arm*) enable_cxx_exceptions=no;;
+   mips*) enable_cxx_exceptions=no;;
++  tilegx*) enable_cxx_exceptions=no;;
+   *) enable_cxx_exceptions=yes;;
+ esac
+ ])
+diff --git a/include/libunwind-tilegx.h b/include/libunwind-tilegx.h
+new file mode 100644
+index 0000000..650476c
+--- /dev/null
++++ b/include/libunwind-tilegx.h
+@@ -0,0 +1,179 @@
++/* libunwind - a platform-independent unwind library
++   Copyright (C) 2008 CodeSourcery
++
++This file is part of libunwind.
++
++Permission is hereby granted, free of charge, to any person obtaining
++a copy of this software and associated documentation files (the
++"Software"), to deal in the Software without restriction, including
++without limitation the rights to use, copy, modify, merge, publish,
++distribute, sublicense, and/or sell copies of the Software, and to
++permit persons to whom the Software is furnished to do so, subject to
++the following conditions:
++
++The above copyright notice and this permission notice shall be
++included in all copies or substantial portions of the Software.
++
++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
++LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
++OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
++WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
++
++#ifndef LIBUNWIND_H
++#define LIBUNWIND_H
++
++#if defined(__cplusplus) || defined(c_plusplus)
++extern "C" {
++#endif
++
++#include <inttypes.h>
++#include <ucontext.h>
++
++#ifdef tilegx
++# undef tilegx
++#endif
++
++#define UNW_TARGET	tilegx
++#define UNW_TARGET_TILEGX	1
++
++/* #define UNW_LOCAL_ONLY  local unwinding only */
++
++#define _U_TDEP_QP_TRUE	0	/* see libunwind-dynamic.h  */
++
++/* This needs to be big enough to accommodate "struct cursor", while
++   leaving some slack for future expansion.  Changing this value will
++   require recompiling all users of this library.  Stack allocation is
++   relatively cheap and unwind-state copying is relatively rare, so we
++   want to err on making it rather too big than too small.  */
++
++/* FIXME for TILEGX. Too big?  What do other things use for similar tasks?  */
++#define UNW_TDEP_CURSOR_LEN	4096
++
++/* The size of a "word" varies on TILEGX.  This type is used for memory
++   addresses and register values.  To allow a single library to support
++   multiple ABIs, and to support N32 at all, we must use a 64-bit type
++   even when addresses are only 32 bits.  */
++typedef uint64_t unw_word_t;
++typedef int32_t unw_sword_t;
++
++/* FIXME: TILEGX ABIs.  */
++typedef long double unw_tdep_fpreg_t;
++
++typedef enum
++  {
++    UNW_TILEGX_R0,
++    UNW_TILEGX_R1,
++    UNW_TILEGX_R2,
++    UNW_TILEGX_R3,
++    UNW_TILEGX_R4,
++    UNW_TILEGX_R5,
++    UNW_TILEGX_R6,
++    UNW_TILEGX_R7,
++    UNW_TILEGX_R8,
++    UNW_TILEGX_R9,
++    UNW_TILEGX_R10,
++    UNW_TILEGX_R11,
++    UNW_TILEGX_R12,
++    UNW_TILEGX_R13,
++    UNW_TILEGX_R14,
++    UNW_TILEGX_R15,
++    UNW_TILEGX_R16,
++    UNW_TILEGX_R17,
++    UNW_TILEGX_R18,
++    UNW_TILEGX_R19,
++    UNW_TILEGX_R20,
++    UNW_TILEGX_R21,
++    UNW_TILEGX_R22,
++    UNW_TILEGX_R23,
++    UNW_TILEGX_R24,
++    UNW_TILEGX_R25,
++    UNW_TILEGX_R26,
++    UNW_TILEGX_R27,
++    UNW_TILEGX_R28,
++    UNW_TILEGX_R29,
++    UNW_TILEGX_R30,
++    UNW_TILEGX_R31,
++    UNW_TILEGX_R32,
++    UNW_TILEGX_R33,
++    UNW_TILEGX_R34,
++    UNW_TILEGX_R35,
++    UNW_TILEGX_R36,
++    UNW_TILEGX_R37,
++    UNW_TILEGX_R38,
++    UNW_TILEGX_R39,
++    UNW_TILEGX_R40,
++    UNW_TILEGX_R41,
++    UNW_TILEGX_R42,
++    UNW_TILEGX_R43,
++    UNW_TILEGX_R44,
++    UNW_TILEGX_R45,
++    UNW_TILEGX_R46,
++    UNW_TILEGX_R47,
++    UNW_TILEGX_R48,
++    UNW_TILEGX_R49,
++    UNW_TILEGX_R50,
++    UNW_TILEGX_R51,
++    UNW_TILEGX_R52,
++    UNW_TILEGX_R53,
++    UNW_TILEGX_R54,
++    UNW_TILEGX_R55,
++
++    /* FIXME: Other registers!  */
++
++    /* For TILEGX, the CFA is the value of SP (r54) at the call site in the
++       previous frame.  */
++    UNW_TILEGX_CFA,
++
++    UNW_TDEP_LAST_REG = UNW_TILEGX_R55,
++
++    UNW_TDEP_IP = UNW_TILEGX_R55,  /* R55 is link register for Tilegx. same as TILEGX. FIXME */
++    UNW_TDEP_SP = UNW_TILEGX_R54,
++    UNW_TDEP_EH = UNW_TILEGX_R0   /* FIXME.  */
++  }
++tilegx_regnum_t;
++
++typedef enum
++  {
++    UNW_TILEGX_ABI_N64 = 2
++  }
++tilegx_abi_t;
++
++#define UNW_TDEP_NUM_EH_REGS	2	/* FIXME for TILEGX.  */
++
++typedef struct unw_tdep_save_loc
++  {
++    /* Additional target-dependent info on a save location.  */
++  }
++unw_tdep_save_loc_t;
++
++/* On x86, we can directly use ucontext_t as the unwind context.  FIXME for
++   TILEGX.  */
++typedef ucontext_t unw_tdep_context_t;
++
++#include "libunwind-dynamic.h"
++
++typedef struct
++  {
++    /* no tilegx-specific auxiliary proc-info */
++  }
++unw_tdep_proc_info_t;
++
++#include "libunwind-common.h"
++
++/* There is no getcontext() on TILEGX.  Use a stub version which only saves GP
++   registers.  FIXME: Not ideal, may not be sufficient for all libunwind
++   use cases.  */
++#define unw_tdep_getcontext UNW_ARCH_OBJ(getcontext)
++extern int unw_tdep_getcontext (ucontext_t *uc);
++
++#define unw_tdep_is_fpreg		UNW_ARCH_OBJ(is_fpreg)
++extern int unw_tdep_is_fpreg (int);
++
++#if defined(__cplusplus) || defined(c_plusplus)
++}
++#endif
++
++#endif /* LIBUNWIND_H */
+diff --git a/include/libunwind.h b/include/libunwind.h
+index c86216a..1f7f1c8 100644
+--- a/include/libunwind.h
++++ b/include/libunwind.h
+@@ -17,6 +17,8 @@
+ # include "libunwind-x86.h"
+ #elif defined __x86_64__
+ # include "libunwind-x86_64.h"
++#elif defined __tilegx__
++# include "libunwind-tilegx.h"
+ #else
+ # error "Unsupported arch"
+ #endif
+diff --git a/include/remote.h b/include/remote.h
+index 9fb90c3..1abfedd 100644
+--- a/include/remote.h
++++ b/include/remote.h
+@@ -43,6 +43,8 @@ fetchw (unw_addr_space_t as, unw_accessors_t *a,
+   return 0;
+ }
+ 
++#define WSIZE	(sizeof (unw_word_t))
++
+ #else /* !UNW_LOCAL_ONLY */
+ 
+ #define WSIZE	(sizeof (unw_word_t))
+diff --git a/include/tdep-tilegx/dwarf-config.h b/include/tdep-tilegx/dwarf-config.h
+new file mode 100644
+index 0000000..7e1ba58
+--- /dev/null
++++ b/include/tdep-tilegx/dwarf-config.h
+@@ -0,0 +1,50 @@
++/* libunwind - a platform-independent unwind library
++   Copyright (C) 2008 CodeSourcery
++
++This file is part of libunwind.
++
++Permission is hereby granted, free of charge, to any person obtaining
++a copy of this software and associated documentation files (the
++"Software"), to deal in the Software without restriction, including
++without limitation the rights to use, copy, modify, merge, publish,
++distribute, sublicense, and/or sell copies of the Software, and to
++permit persons to whom the Software is furnished to do so, subject to
++the following conditions:
++
++The above copyright notice and this permission notice shall be
++included in all copies or substantial portions of the Software.
++
++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
++LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
++OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
++WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
++
++#ifndef dwarf_config_h
++#define dwarf_config_h
++
++/* This is FIRST_PSEUDO_REGISTER in GCC, since DWARF_FRAME_REGISTERS is not
++   explicitly defined.  */
++#define DWARF_NUM_PRESERVED_REGS	188
++
++#define DWARF_REGNUM_MAP_LENGTH		56
++
++/* Return TRUE if the ADDR_SPACE uses big-endian byte-order.  */
++#define dwarf_is_big_endian(addr_space)	((addr_space)->big_endian)
++
++/* Convert a pointer to a dwarf_cursor structure to a pointer to
++   unw_cursor_t.  */
++#define dwarf_to_cursor(c)	((unw_cursor_t *) (c))
++
++typedef struct dwarf_loc
++  {
++    unw_word_t val;
++#ifndef UNW_LOCAL_ONLY
++    unw_word_t type;		/* see DWARF_LOC_TYPE_* macros.  */
++#endif
++  }
++dwarf_loc_t;
++
++#endif /* dwarf_config_h */
+diff --git a/include/tdep-tilegx/jmpbuf.h b/include/tdep-tilegx/jmpbuf.h
+new file mode 100644
+index 0000000..2645a16
+--- /dev/null
++++ b/include/tdep-tilegx/jmpbuf.h
+@@ -0,0 +1,32 @@
++/* libunwind - a platform-independent unwind library
++   Copyright (C) 2008 CodeSourcery
++
++This file is part of libunwind.
++
++Permission is hereby granted, free of charge, to any person obtaining
++a copy of this software and associated documentation files (the
++"Software"), to deal in the Software without restriction, including
++without limitation the rights to use, copy, modify, merge, publish,
++distribute, sublicense, and/or sell copies of the Software, and to
++permit persons to whom the Software is furnished to do so, subject to
++the following conditions:
++
++The above copyright notice and this permission notice shall be
++included in all copies or substantial portions of the Software.
++
++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
++LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
++OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
++WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
++
++/* Use glibc's jump-buffer indices; NPTL peeks at SP: */
++
++/* FIXME for Tilegx!  */
++
++#define JB_SP		4
++#define JB_RP		5
++#define JB_MASK_SAVED	6
++#define JB_MASK		7
+diff --git a/include/tdep-tilegx/libunwind_i.h b/include/tdep-tilegx/libunwind_i.h
+new file mode 100644
+index 0000000..b5110b9
+--- /dev/null
++++ b/include/tdep-tilegx/libunwind_i.h
+@@ -0,0 +1,318 @@
++/* libunwind - a platform-independent unwind library
++   Copyright (C) 2008 CodeSourcery
++
++This file is part of libunwind.
++
++Permission is hereby granted, free of charge, to any person obtaining
++a copy of this software and associated documentation files (the
++"Software"), to deal in the Software without restriction, including
++without limitation the rights to use, copy, modify, merge, publish,
++distribute, sublicense, and/or sell copies of the Software, and to
++permit persons to whom the Software is furnished to do so, subject to
++the following conditions:
++
++The above copyright notice and this permission notice shall be
++included in all copies or substantial portions of the Software.
++
++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
++LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
++OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
++WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
++
++#ifndef TILEGX_LIBUNWIND_I_H
++#define TILEGX_LIBUNWIND_I_H
++
++/* Target-dependent definitions that are internal to libunwind but need
++   to be shared with target-independent code.  */
++
++#include <stdlib.h>
++#include <libunwind.h>
++
++# include "elf64.h"
++#include "mempool.h"
++#include "dwarf.h"
++
++typedef struct
++  {
++    /* no tilegx-specific fast trace */
++  }
++unw_tdep_frame_t;
++
++struct unw_addr_space
++  {
++    struct unw_accessors acc;
++
++    int big_endian;
++    tilegx_abi_t abi;
++    unsigned int addr_size;
++
++    unw_caching_policy_t caching_policy;
++#ifdef HAVE_ATOMIC_OPS_H
++    AO_t cache_generation;
++#else
++    uint32_t cache_generation;
++#endif
++    unw_word_t dyn_generation;		/* see dyn-common.h */
++    unw_word_t dyn_info_list_addr;	/* (cached) dyn_info_list_addr */
++    struct dwarf_rs_cache global_cache;
++    struct unw_debug_frame_list *debug_frames;
++};
++
++#define tdep_big_endian(as)		((as)->big_endian)
++
++struct cursor
++  {
++    struct dwarf_cursor dwarf;		/* must be first */
++    unw_word_t sigcontext_addr;
++    unw_word_t sigcontext_sp;
++    unw_word_t sigcontext_pc;
++  };
++
++#define DWARF_GET_LOC(l)	((l).val)
++
++#ifndef UNW_REMOTE_ONLY
++typedef long tilegx_reg_t;
++#endif
++
++#ifdef UNW_LOCAL_ONLY
++# define DWARF_NULL_LOC		DWARF_LOC (0, 0)
++# define DWARF_IS_NULL_LOC(l)	(DWARF_GET_LOC (l) == 0)
++# define DWARF_LOC(r, t)	((dwarf_loc_t) { .val = (r) })
++# define DWARF_IS_REG_LOC(l)	0
++# define DWARF_REG_LOC(c,r)	(DWARF_LOC((unw_word_t) (intptr_t)	     \
++				 tdep_uc_addr((c)->as_arg, (r)), 0))
++# define DWARF_MEM_LOC(c,m)	DWARF_LOC ((m), 0)
++# define DWARF_FPREG_LOC(c,r)	(DWARF_LOC((unw_word_t) (intptr_t)	     \
++				 tdep_uc_addr((c)->as_arg, (r)), 0))
++
++/* FIXME: Implement these for the TILEGX FPU.  */
++static inline int
++dwarf_getfp (struct dwarf_cursor *c, dwarf_loc_t loc, unw_fpreg_t *val)
++{
++  if (!DWARF_GET_LOC (loc))
++    return -1;
++  *val = *(unw_fpreg_t *) (intptr_t) DWARF_GET_LOC (loc);
++  return 0;
++}
++
++static inline int
++dwarf_putfp (struct dwarf_cursor *c, dwarf_loc_t loc, unw_fpreg_t val)
++{
++  if (!DWARF_GET_LOC (loc))
++    return -1;
++  *(unw_fpreg_t *) (intptr_t) DWARF_GET_LOC (loc) = val;
++  return 0;
++}
++
++static inline int
++dwarf_get (struct dwarf_cursor *c, dwarf_loc_t loc, unw_word_t *val)
++{
++  if (!DWARF_GET_LOC (loc))
++    return -1;
++  *val = *(tilegx_reg_t *) (intptr_t) DWARF_GET_LOC (loc);
++  return 0;
++}
++
++static inline int
++dwarf_put (struct dwarf_cursor *c, dwarf_loc_t loc, unw_word_t val)
++{
++  if (!DWARF_GET_LOC (loc))
++    return -1;
++  *(tilegx_reg_t *) (intptr_t) DWARF_GET_LOC (loc) = val;
++  return 0;
++}
++
++#else /* !UNW_LOCAL_ONLY */
++# define DWARF_LOC_TYPE_FP	(1 << 0)
++# define DWARF_LOC_TYPE_REG	(1 << 1)
++# define DWARF_NULL_LOC		DWARF_LOC (0, 0)
++# define DWARF_IS_NULL_LOC(l)						\
++		({ dwarf_loc_t _l = (l); _l.val == 0 && _l.type == 0; })
++# define DWARF_LOC(r, t)	((dwarf_loc_t) { .val = (r), .type = (t) })
++# define DWARF_IS_REG_LOC(l)	(((l).type & DWARF_LOC_TYPE_REG) != 0)
++# define DWARF_IS_FP_LOC(l)	(((l).type & DWARF_LOC_TYPE_FP) != 0)
++# define DWARF_REG_LOC(c,r)	DWARF_LOC((r), DWARF_LOC_TYPE_REG)
++# define DWARF_MEM_LOC(c,m)	DWARF_LOC ((m), 0)
++# define DWARF_FPREG_LOC(c,r)	DWARF_LOC((r), (DWARF_LOC_TYPE_REG	\
++						| DWARF_LOC_TYPE_FP))
++
++static inline int
++read_s32 (struct dwarf_cursor *c, unw_word_t addr, unw_word_t *val)
++{
++  int offset = addr & 4;
++  int ret;
++  unw_word_t memval;
++
++  ret = (*c->as->acc.access_mem) (c->as, addr - offset, &memval, 0, c->as_arg);
++  if (ret < 0)
++    return ret;
++
++  if ((offset != 0) == tdep_big_endian (c->as))
++    *val = (int32_t) memval;
++  else
++    *val = (int32_t) (memval >> 32);
++
++  return 0;
++}
++
++static inline int
++write_s32 (struct dwarf_cursor *c, unw_word_t addr, const unw_word_t *val)
++{
++  int offset = addr & 4;
++  int ret;
++  unw_word_t memval;
++
++  ret = (*c->as->acc.access_mem) (c->as, addr - offset, &memval, 0, c->as_arg);
++  if (ret < 0)
++    return ret;
++
++  if ((offset != 0) == tdep_big_endian (c->as))
++    memval = (memval & ~0xffffffffLL) | (uint32_t) *val;
++  else
++    memval = (memval & 0xffffffffLL) | (uint32_t) (*val << 32);
++
++  return (*c->as->acc.access_mem) (c->as, addr - offset, &memval, 1, c->as_arg);
++}
++
++/* FIXME: Implement these for the TILEGX FPU.  */
++static inline int
++dwarf_getfp (struct dwarf_cursor *c, dwarf_loc_t loc, unw_fpreg_t *val)
++{
++  char *valp = (char *) &val;
++  unw_word_t addr;
++  int ret;
++
++  if (DWARF_IS_NULL_LOC (loc))
++    return -UNW_EBADREG;
++
++  if (DWARF_IS_REG_LOC (loc))
++    return (*c->as->acc.access_fpreg) (c->as, DWARF_GET_LOC (loc),
++				       val, 0, c->as_arg);
++
++  addr = DWARF_GET_LOC (loc);
++  if ((ret = (*c->as->acc.access_mem) (c->as, addr + 0, (unw_word_t *) valp,
++				       0, c->as_arg)) < 0)
++    return ret;
++
++  return (*c->as->acc.access_mem) (c->as, addr + 4, (unw_word_t *) valp + 1, 0,
++				   c->as_arg);
++}
++
++static inline int
++dwarf_putfp (struct dwarf_cursor *c, dwarf_loc_t loc, unw_fpreg_t val)
++{
++  char *valp = (char *) &val;
++  unw_word_t addr;
++  int ret;
++
++  if (DWARF_IS_NULL_LOC (loc))
++    return -UNW_EBADREG;
++
++  if (DWARF_IS_REG_LOC (loc))
++    return (*c->as->acc.access_fpreg) (c->as, DWARF_GET_LOC (loc),
++				       &val, 1, c->as_arg);
++
++  addr = DWARF_GET_LOC (loc);
++  if ((ret = (*c->as->acc.access_mem) (c->as, addr + 0, (unw_word_t *) valp,
++				       1, c->as_arg)) < 0)
++    return ret;
++
++  return (*c->as->acc.access_mem) (c->as, addr + 4, (unw_word_t *) valp + 1,
++				   1, c->as_arg);
++}
++
++static inline int
++dwarf_get (struct dwarf_cursor *c, dwarf_loc_t loc, unw_word_t *val)
++{
++  if (DWARF_IS_NULL_LOC (loc))
++    return -UNW_EBADREG;
++
++  /* If a code-generator were to save a value of type unw_word_t in a
++     floating-point register, we would have to support this case.  I
++     suppose it could happen with MMX registers, but does it really
++     happen?  */
++  assert (!DWARF_IS_FP_LOC (loc));
++
++  if (DWARF_IS_REG_LOC (loc))
++    return (*c->as->acc.access_reg) (c->as, DWARF_GET_LOC (loc), val,
++				     0, c->as_arg);
++
++  return (*c->as->acc.access_mem) (c->as, DWARF_GET_LOC (loc), val,
++                                   0, c->as_arg);
++}
++
++static inline int
++dwarf_put (struct dwarf_cursor *c, dwarf_loc_t loc, unw_word_t val)
++{
++  if (DWARF_IS_NULL_LOC (loc))
++    return -UNW_EBADREG;
++
++  /* If a code-generator were to save a value of type unw_word_t in a
++     floating-point register, we would have to support this case.  I
++     suppose it could happen with MMX registers, but does it really
++     happen?  */
++  assert (!DWARF_IS_FP_LOC (loc));
++
++  if (DWARF_IS_REG_LOC (loc))
++    return (*c->as->acc.access_reg) (c->as, DWARF_GET_LOC (loc), &val,
++				     1, c->as_arg);
++  
++  return (*c->as->acc.access_mem) (c->as, DWARF_GET_LOC (loc), &val,
++                                   1, c->as_arg);
++}
++
++#endif /* !UNW_LOCAL_ONLY */
++
++#define tdep_getcontext_trace           unw_getcontext
++#define tdep_needs_initialization	UNW_OBJ(needs_initialization)
++#define tdep_init			UNW_OBJ(init)
++/* Platforms that support UNW_INFO_FORMAT_TABLE need to define
++   tdep_search_unwind_table.  */
++#define tdep_search_unwind_table	dwarf_search_unwind_table
++#define tdep_uc_addr			UNW_ARCH_OBJ(uc_addr)
++#define tdep_get_elf_image		UNW_ARCH_OBJ(get_elf_image)
++#define tdep_access_reg			UNW_OBJ(access_reg)
++#define tdep_access_fpreg		UNW_OBJ(access_fpreg)
++#define tdep_fetch_frame(c,ip,n)	do {} while(0)
++#define tdep_cache_frame(c,rs)		do {} while(0)
++#define tdep_reuse_frame(c,rs)		do {} while(0)
++#define tdep_stash_frame(c,rs)		do {} while(0)
++#define tdep_trace(cur,addr,n)		(-UNW_ENOINFO)
++
++#ifdef UNW_LOCAL_ONLY
++# define tdep_find_proc_info(c,ip,n)				\
++	dwarf_find_proc_info((c)->as, (ip), &(c)->pi, (n),	\
++				       (c)->as_arg)
++# define tdep_put_unwind_info(as,pi,arg)		\
++	dwarf_put_unwind_info((as), (pi), (arg))
++#else
++# define tdep_find_proc_info(c,ip,n)					\
++	(*(c)->as->acc.find_proc_info)((c)->as, (ip), &(c)->pi, (n),	\
++				       (c)->as_arg)
++# define tdep_put_unwind_info(as,pi,arg)		\
++	(*(as)->acc.put_unwind_info)((as), (pi), (arg))
++#endif
++
++#define tdep_get_as(c)			((c)->dwarf.as)
++#define tdep_get_as_arg(c)		((c)->dwarf.as_arg)
++#define tdep_get_ip(c)			((c)->dwarf.ip)
++
++extern int tdep_needs_initialization;
++
++extern void tdep_init (void);
++extern int tdep_search_unwind_table (unw_addr_space_t as, unw_word_t ip,
++				     unw_dyn_info_t *di, unw_proc_info_t *pi,
++				     int need_unwind_info, void *arg);
++extern void *tdep_uc_addr (ucontext_t *uc, int reg);
++extern int tdep_get_elf_image (struct elf_image *ei, pid_t pid, unw_word_t ip,
++			       unsigned long *segbase, unsigned long *mapoff,
++			       char *path, size_t pathlen);
++extern int tdep_access_reg (struct cursor *c, unw_regnum_t reg,
++			    unw_word_t *valp, int write);
++extern int tdep_access_fpreg (struct cursor *c, unw_regnum_t reg,
++			      unw_fpreg_t *valp, int write);
++
++#endif /* TILEGX_LIBUNWIND_I_H */
+diff --git a/include/tdep/dwarf-config.h b/include/tdep/dwarf-config.h
+index ff5715f..dd23a53 100644
+--- a/include/tdep/dwarf-config.h
++++ b/include/tdep/dwarf-config.h
+@@ -17,6 +17,8 @@
+ # include "tdep-x86/dwarf-config.h"
+ #elif defined __x86_64__ || defined __amd64__
+ # include "tdep-x86_64/dwarf-config.h"
++#elif defined __tilegx__
++# include "tdep-tilegx/dwarf-config.h"
+ #else
+ # error "Unsupported arch"
+ #endif
+diff --git a/include/tdep/jmpbuf.h b/include/tdep/jmpbuf.h
+index e3cda31..ef9ec03 100644
+--- a/include/tdep/jmpbuf.h
++++ b/include/tdep/jmpbuf.h
+@@ -17,6 +17,8 @@
+ # include "tdep-x86/jmpbuf.h"
+ #elif defined __x86_64__
+ # include "tdep-x86_64/jmpbuf.h"
++#elif defined __tilegx__
++# include "tdep-tilegx/jmpbuf.h"
+ #else
+ # error "Unsupported arch"
+ #endif
+diff --git a/include/tdep/libunwind_i.h b/include/tdep/libunwind_i.h
+index cd8c2bf..8679a03 100644
+--- a/include/tdep/libunwind_i.h
++++ b/include/tdep/libunwind_i.h
+@@ -17,6 +17,8 @@
+ # include "tdep-x86/libunwind_i.h"
+ #elif defined __x86_64__
+ # include "tdep-x86_64/libunwind_i.h"
++#elif defined __tilegx__
++# include "tdep-tilegx/libunwind_i.h"
+ #else
+ # error "Unsupported arch"
+ #endif
+diff --git a/src/Makefile.am b/src/Makefile.am
+index 26b1895..214d772 100644
+--- a/src/Makefile.am
++++ b/src/Makefile.am
+@@ -224,6 +224,26 @@ libunwind_mips_la_SOURCES_mips = $(libunwind_la_SOURCES_mips_common)	    \
+ 	mips/Gglobal.c mips/Ginit.c mips/Ginit_local.c mips/Ginit_remote.c	    \
+ 	mips/Gis_signal_frame.c mips/Gregs.c mips/Gresume.c mips/Gstep.c
+ 
++# The list of files that go info libunwind and libunwind-tilegx:
++noinst_HEADERS += tilegx/init.h tilegx/offsets.h
++libunwind_la_SOURCES_tilegx_common = $(libunwind_la_SOURCES_common)	    \
++	tilegx/is_fpreg.c tilegx/regname.c
++
++# The list of files that go into libunwind:
++libunwind_la_SOURCES_tilegx = $(libunwind_la_SOURCES_tilegx_common)		    \
++	$(libunwind_la_SOURCES_local)					    \
++	tilegx/getcontext.S						    \
++	tilegx/Lcreate_addr_space.c tilegx/Lget_proc_info.c tilegx/Lget_save_loc.c   \
++	tilegx/Lglobal.c tilegx/Linit.c tilegx/Linit_local.c tilegx/Linit_remote.c  \
++	tilegx/Lis_signal_frame.c tilegx/Lregs.c tilegx/Lresume.c tilegx/Lstep.c
++
++libunwind_tilegx_la_SOURCES_tilegx = $(libunwind_la_SOURCES_tilegx_common)	    \
++	$(libunwind_la_SOURCES_generic)					    \
++	tilegx/Gcreate_addr_space.c tilegx/Gget_proc_info.c tilegx/Gget_save_loc.c   \
++	tilegx/Gglobal.c tilegx/Ginit.c tilegx/Ginit_local.c tilegx/Ginit_remote.c	    \
++	tilegx/Gis_signal_frame.c tilegx/Gregs.c tilegx/Gresume.c tilegx/Gstep.c
++
++
+ # The list of files that go both into libunwind and libunwind-x86:
+ noinst_HEADERS += x86/init.h x86/offsets.h x86/unwind_i.h
+ libunwind_la_SOURCES_x86_common = $(libunwind_la_SOURCES_common)	\
+@@ -420,6 +440,18 @@ if !REMOTE_ONLY
+ endif
+  libunwind_setjmp_la_SOURCES += mips/siglongjmp.S
+ else
++if ARCH_TILEGX
++ lib_LTLIBRARIES += libunwind-tilegx.la
++ libunwind_la_SOURCES = $(libunwind_la_SOURCES_tilegx)
++ libunwind_tilegx_la_SOURCES = $(libunwind_tilegx_la_SOURCES_tilegx)
++ libunwind_tilegx_la_LDFLAGS = $(COMMON_SO_LDFLAGS) -version-info $(SOVERSION)
++ libunwind_tilegx_la_LIBADD = libunwind-dwarf-generic.la
++ libunwind_tilegx_la_LIBADD += libunwind-elfxx.la
++if !REMOTE_ONLY
++ libunwind_tilegx_la_LIBADD += libunwind.la -lc
++endif
++ libunwind_setjmp_la_SOURCES += tilegx/siglongjmp.S
++else
+ if ARCH_X86
+  lib_LTLIBRARIES += libunwind-x86.la
+  libunwind_la_SOURCES = $(libunwind_la_SOURCES_x86) $(libunwind_x86_la_SOURCES_os)
+@@ -472,6 +504,7 @@ endif # ARCH_PPC64
+ endif # ARCH_PPC32
+ endif # ARCH_X86_64
+ endif # ARCH_X86
++endif # ARCH_TILEGX
+ endif # ARCH_MIPS
+ endif # ARCH_HPPA
+ endif # ARCH_IA64
+@@ -499,6 +532,7 @@ EXTRA_DIST =	$(libunwind_la_SOURCES_arm)			\
+ 		$(libunwind_la_SOURCES_hppa)			\
+ 		$(libunwind_la_SOURCES_ia64)			\
+ 		$(libunwind_la_SOURCES_mips)			\
++		$(libunwind_la_SOURCES_tilegx)			\
+ 		$(libunwind_la_SOURCES_x86)			\
+ 		$(libunwind_la_SOURCES_os_freebsd)		\
+ 		$(libunwind_la_SOURCES_os_linux)		\
+@@ -510,6 +544,7 @@ EXTRA_DIST =	$(libunwind_la_SOURCES_arm)			\
+ 		$(libunwind_hppa_la_SOURCES_hppa)		\
+ 		$(libunwind_ia64_la_SOURCES_ia64)		\
+ 		$(libunwind_mips_la_SOURCES_mips)		\
++		$(libunwind_tilegx_la_SOURCES_tilegx)		\
+ 		$(libunwind_x86_la_SOURCES_x86)			\
+ 		$(libunwind_x86_64_la_SOURCES_x86_64)
+ 
+diff --git a/src/ptrace/_UPT_find_proc_info.c b/src/ptrace/_UPT_find_proc_info.c
+index 44feb34..fe10498 100644
+--- a/src/ptrace/_UPT_find_proc_info.c
++++ b/src/ptrace/_UPT_find_proc_info.c
+@@ -147,7 +147,8 @@ _UPTi_find_unwind_table (struct UPT_info *ui, unw_addr_space_t as,
+ }
+ 
+ #elif UNW_TARGET_X86 || UNW_TARGET_X86_64 || UNW_TARGET_HPPA \
+-|| UNW_TARGET_PPC32 || UNW_TARGET_PPC64 || UNW_TARGET_ARM
++|| UNW_TARGET_PPC32 || UNW_TARGET_PPC64 || UNW_TARGET_ARM \
++|| UNW_TARGET_TILEGX
+ 
+ #include "dwarf-eh.h"
+ #include "dwarf_i.h"
+diff --git a/src/ptrace/_UPT_reg_offset.c b/src/ptrace/_UPT_reg_offset.c
+index d6e1274..89483ba 100644
+--- a/src/ptrace/_UPT_reg_offset.c
++++ b/src/ptrace/_UPT_reg_offset.c
+@@ -355,6 +355,68 @@ int _UPT_reg_offset[UNW_REG_LAST + 1] =
+     [UNW_ARM_R14]      = 0x38,
+     [UNW_ARM_R15]      = 0x3c,
+ #elif defined(UNW_TARGET_MIPS)
++#elif defined(UNW_TARGET_TILEGX)
++    [UNW_TILEGX_R0]    = 0x00,
++    [UNW_TILEGX_R1]    = 0x08,
++    [UNW_TILEGX_R2]    = 0x10,
++    [UNW_TILEGX_R3]    = 0x08,
++    [UNW_TILEGX_R4]    = 0x20,
++    [UNW_TILEGX_R5]    = 0x28,
++    [UNW_TILEGX_R6]    = 0x30,
++    [UNW_TILEGX_R7]    = 0x38,
++    [UNW_TILEGX_R8]    = 0x40,
++    [UNW_TILEGX_R9]    = 0x48,
++
++    [UNW_TILEGX_R10]    = 0x50,
++    [UNW_TILEGX_R11]    = 0x58,
++    [UNW_TILEGX_R12]    = 0x60,
++    [UNW_TILEGX_R13]    = 0x68,
++    [UNW_TILEGX_R14]    = 0x70,
++    [UNW_TILEGX_R15]    = 0x78,
++    [UNW_TILEGX_R16]    = 0x80,
++    [UNW_TILEGX_R17]    = 0x88,
++    [UNW_TILEGX_R18]    = 0x90,
++    [UNW_TILEGX_R19]    = 0x98,
++
++    [UNW_TILEGX_R20]    = 0xa0,
++    [UNW_TILEGX_R21]    = 0xa8,
++    [UNW_TILEGX_R22]    = 0xb0,
++    [UNW_TILEGX_R23]    = 0xb8,
++    [UNW_TILEGX_R24]    = 0xc0,
++    [UNW_TILEGX_R25]    = 0xc8,
++    [UNW_TILEGX_R26]    = 0xd0,
++    [UNW_TILEGX_R27]    = 0xd8,
++    [UNW_TILEGX_R28]    = 0xe0,
++    [UNW_TILEGX_R29]    = 0xe8,
++
++    [UNW_TILEGX_R30]    = 0xf0,
++    [UNW_TILEGX_R31]    = 0xf8,
++    [UNW_TILEGX_R32]    = 0x100,
++    [UNW_TILEGX_R33]    = 0x108,
++    [UNW_TILEGX_R34]    = 0x110,
++    [UNW_TILEGX_R35]    = 0x118,
++    [UNW_TILEGX_R36]    = 0x120,
++    [UNW_TILEGX_R37]    = 0x128,
++    [UNW_TILEGX_R38]    = 0x130,
++    [UNW_TILEGX_R39]    = 0x138,
++
++    [UNW_TILEGX_R40]    = 0x140,
++    [UNW_TILEGX_R41]    = 0x148,
++    [UNW_TILEGX_R42]    = 0x150,
++    [UNW_TILEGX_R43]    = 0x158,
++    [UNW_TILEGX_R44]    = 0x160,
++    [UNW_TILEGX_R45]    = 0x168,
++    [UNW_TILEGX_R46]    = 0x170,
++    [UNW_TILEGX_R47]    = 0x178,
++    [UNW_TILEGX_R48]    = 0x180,
++    [UNW_TILEGX_R49]    = 0x188,
++
++    [UNW_TILEGX_R50]    = 0x190,
++    [UNW_TILEGX_R51]    = 0x198,
++    [UNW_TILEGX_R52]    = 0x1a0,
++    [UNW_TILEGX_R53]    = 0x1a8,
++    [UNW_TILEGX_R54]    = 0x1b0,
++    [UNW_TILEGX_R55]    = 0x1b8
+ #else
+ # error Fix me.
+ #endif
+diff --git a/src/setjmp/longjmp.c b/src/setjmp/longjmp.c
+index 1b9f7c4..2915534 100644
+--- a/src/setjmp/longjmp.c
++++ b/src/setjmp/longjmp.c
+@@ -43,13 +43,22 @@ _longjmp (jmp_buf env, int val)
+   unw_word_t sp;
+   unw_word_t *wp = (unw_word_t *) env;
+ 
++#if defined(UNW_TARGET_TILEGX)
++  int n = 0;
++#endif
++
+   if (unw_getcontext (&uc) < 0 || unw_init_local (&c, &uc) < 0)
+     abort ();
+-
+   do
+     {
++#if defined(UNW_TARGET_TILEGX)
++      if (++n > 100)
++        abort();
++#endif
++
+       if (unw_get_reg (&c, UNW_REG_SP, &sp) < 0)
+ 	abort ();
++
+ #ifdef __FreeBSD__
+       if (sp != wp[JB_SP] + sizeof(unw_word_t))
+ #else
+diff --git a/src/tilegx/Gcreate_addr_space.c b/src/tilegx/Gcreate_addr_space.c
+new file mode 100644
+index 0000000..d20e076
+--- /dev/null
++++ b/src/tilegx/Gcreate_addr_space.c
+@@ -0,0 +1,65 @@
++/* libunwind - a platform-independent unwind library
++   Copyright (C) 2008 CodeSourcery
++
++This file is part of libunwind.
++
++Permission is hereby granted, free of charge, to any person obtaining
++a copy of this software and associated documentation files (the
++"Software"), to deal in the Software without restriction, including
++without limitation the rights to use, copy, modify, merge, publish,
++distribute, sublicense, and/or sell copies of the Software, and to
++permit persons to whom the Software is furnished to do so, subject to
++the following conditions:
++
++The above copyright notice and this permission notice shall be
++included in all copies or substantial portions of the Software.
++
++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
++LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
++OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
++WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
++
++#include <stdlib.h>
++
++#include "unwind_i.h"
++
++PROTECTED unw_addr_space_t
++unw_create_addr_space (unw_accessors_t *a, int byte_order)
++{
++#ifdef UNW_LOCAL_ONLY
++  return NULL;
++#else
++  unw_addr_space_t as = malloc (sizeof (*as));
++
++  if (!as)
++    return NULL;
++
++  memset (as, 0, sizeof (*as));
++
++  as->acc = *a;
++
++  /*
++   * Tilegx supports only big or little-endian, not weird stuff like
++   * PDP_ENDIAN.
++   */
++  if (byte_order != 0
++      && byte_order != __LITTLE_ENDIAN
++      && byte_order != __BIG_ENDIAN)
++    return NULL;
++
++  if (byte_order == 0)
++    /* use host default: */
++    as->big_endian = (__BYTE_ORDER == __BIG_ENDIAN);
++  else
++    as->big_endian = (byte_order == __BIG_ENDIAN);
++
++  /* FIXME!  There is no way to specify the ABI.  */
++  as->abi = UNW_TILEGX_ABI_N64;
++  as->addr_size = 8;
++
++  return as;
++#endif
++}
+diff --git a/src/tilegx/Gget_proc_info.c b/src/tilegx/Gget_proc_info.c
+new file mode 100644
+index 0000000..7166a32
+--- /dev/null
++++ b/src/tilegx/Gget_proc_info.c
+@@ -0,0 +1,47 @@
++/* libunwind - a platform-independent unwind library
++   Copyright (C) 2008 CodeSourcery
++
++This file is part of libunwind.
++
++Permission is hereby granted, free of charge, to any person obtaining
++a copy of this software and associated documentation files (the
++"Software"), to deal in the Software without restriction, including
++without limitation the rights to use, copy, modify, merge, publish,
++distribute, sublicense, and/or sell copies of the Software, and to
++permit persons to whom the Software is furnished to do so, subject to
++the following conditions:
++
++The above copyright notice and this permission notice shall be
++included in all copies or substantial portions of the Software.
++
++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
++LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
++OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
++WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
++
++#include "unwind_i.h"
++
++PROTECTED int
++unw_get_proc_info (unw_cursor_t *cursor, unw_proc_info_t *pi)
++{
++  struct cursor *c = (struct cursor *) cursor;
++  int ret;
++
++  ret = dwarf_make_proc_info (&c->dwarf);
++
++  if (ret < 0)
++    {
++      /* On Tilegx, some routines i.e. _start() etc has no dwarf info.
++         Just simply mark the end of the frames. */
++      memset (pi, 0, sizeof (*pi));
++      pi->start_ip = c->dwarf.ip;
++      pi->end_ip = c->dwarf.ip + 1;
++      return 0;
++    }
++
++  *pi = c->dwarf.pi;
++  return 0;
++}
+diff --git a/src/tilegx/Gget_save_loc.c b/src/tilegx/Gget_save_loc.c
+new file mode 100644
+index 0000000..ad5b5e2
+--- /dev/null
++++ b/src/tilegx/Gget_save_loc.c
+@@ -0,0 +1,65 @@
++/* libunwind - a platform-independent unwind library
++   Copyright (C) 2008 CodeSourcery
++
++This file is part of libunwind.
++
++Permission is hereby granted, free of charge, to any person obtaining
++a copy of this software and associated documentation files (the
++"Software"), to deal in the Software without restriction, including
++without limitation the rights to use, copy, modify, merge, publish,
++distribute, sublicense, and/or sell copies of the Software, and to
++permit persons to whom the Software is furnished to do so, subject to
++the following conditions:
++
++The above copyright notice and this permission notice shall be
++included in all copies or substantial portions of the Software.
++
++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
++LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
++OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
++WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
++
++#include "unwind_i.h"
++
++/* FIXME for TILEGX.  */
++
++PROTECTED int
++unw_get_save_loc (unw_cursor_t *cursor, int reg, unw_save_loc_t *sloc)
++{
++  struct cursor *c = (struct cursor *) cursor;
++  dwarf_loc_t loc;
++
++  loc = DWARF_NULL_LOC;		/* default to "not saved" */
++
++  if (reg <= UNW_TILEGX_R55) 
++    loc = c->dwarf.loc[reg - UNW_TILEGX_R0];
++  else
++  {
++    printf("\nInvalid register!");
++  }
++
++  memset (sloc, 0, sizeof (*sloc));
++
++  if (DWARF_IS_NULL_LOC (loc))
++    {
++      sloc->type = UNW_SLT_NONE;
++      return 0;
++    }
++
++#if !defined(UNW_LOCAL_ONLY)
++  if (DWARF_IS_REG_LOC (loc))
++    {
++      sloc->type = UNW_SLT_REG;
++      sloc->u.regnum = DWARF_GET_LOC (loc);
++    }
++  else
++#endif
++    {
++      sloc->type = UNW_SLT_MEMORY;
++      sloc->u.addr = DWARF_GET_LOC (loc);
++    }
++  return 0;
++}
+diff --git a/src/tilegx/Gglobal.c b/src/tilegx/Gglobal.c
+new file mode 100644
+index 0000000..1e6df93
+--- /dev/null
++++ b/src/tilegx/Gglobal.c
+@@ -0,0 +1,67 @@
++/* libunwind - a platform-independent unwind library
++   Copyright (C) 2008 CodeSourcery
++
++This file is part of libunwind.
++
++Permission is hereby granted, free of charge, to any person obtaining
++a copy of this software and associated documentation files (the
++"Software"), to deal in the Software without restriction, including
++without limitation the rights to use, copy, modify, merge, publish,
++distribute, sublicense, and/or sell copies of the Software, and to
++permit persons to whom the Software is furnished to do so, subject to
++the following conditions:
++
++The above copyright notice and this permission notice shall be
++included in all copies or substantial portions of the Software.
++
++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
++LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
++OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
++WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
++
++#include "unwind_i.h"
++#include "dwarf_i.h"
++
++/* HIDDEN */  __attribute__((weak))
++pthread_mutex_t tilegx_lock = PTHREAD_MUTEX_INITIALIZER;
++HIDDEN int tdep_needs_initialization = 1;
++
++/* FIXME: I'm pretty sure we don't need this at all for TILEGX, but "generic"
++   code (include/dwarf_i.h) seems to expect it to be here at present.  */
++
++HIDDEN uint8_t dwarf_to_unw_regnum_map[] =
++  {
++    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
++    16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
++    32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47,
++    48, 49, 50, 51, 52, 53, 54, 55
++  };
++
++HIDDEN void
++tdep_init (void)
++{
++  intrmask_t saved_mask;
++
++  sigfillset (&unwi_full_mask);
++
++  lock_acquire (&tilegx_lock, saved_mask);
++  {
++    if (!tdep_needs_initialization)
++      /* another thread else beat us to it... */
++      goto out;
++
++    mi_init ();
++
++    dwarf_init ();
++
++#ifndef UNW_REMOTE_ONLY
++    tilegx_local_addr_space_init ();
++#endif
++    tdep_needs_initialization = 0;	/* signal that we're initialized... */
++  }
++ out:
++  lock_release (&tilegx_lock, saved_mask);
++}
+diff --git a/src/tilegx/Ginit.c b/src/tilegx/Ginit.c
+new file mode 100644
+index 0000000..92cd5a9
+--- /dev/null
++++ b/src/tilegx/Ginit.c
+@@ -0,0 +1,205 @@
++/* libunwind - a platform-independent unwind library
++   Copyright (C) 2008 CodeSourcery
++
++This file is part of libunwind.
++
++Permission is hereby granted, free of charge, to any person obtaining
++a copy of this software and associated documentation files (the
++"Software"), to deal in the Software without restriction, including
++without limitation the rights to use, copy, modify, merge, publish,
++distribute, sublicense, and/or sell copies of the Software, and to
++permit persons to whom the Software is furnished to do so, subject to
++the following conditions:
++
++The above copyright notice and this permission notice shall be
++included in all copies or substantial portions of the Software.
++
++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
++LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
++OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
++WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
++
++#include <stdlib.h>
++#include <string.h>
++
++#include "unwind_i.h"
++
++#ifdef UNW_REMOTE_ONLY
++
++/* unw_local_addr_space is a NULL pointer in this case.  */
++PROTECTED unw_addr_space_t unw_local_addr_space;
++
++#else /* !UNW_REMOTE_ONLY */
++
++static struct unw_addr_space local_addr_space;
++
++PROTECTED unw_addr_space_t unw_local_addr_space = &local_addr_space;
++
++/* Return the address of the 64-bit slot in UC for REG (even for o32,
++   where registers are 32-bit, the slots are still 64-bit).  */
++
++static inline void *
++uc_addr (ucontext_t *uc, int reg)
++{
++  if (reg >= UNW_TILEGX_R0 && reg < UNW_TILEGX_R0 + 56)
++    return &uc->uc_mcontext.gregs[reg - UNW_TILEGX_R0];
++  else
++    return NULL;
++}
++
++# ifdef UNW_LOCAL_ONLY
++
++HIDDEN void *
++tdep_uc_addr (ucontext_t *uc, int reg)
++{
++  char *addr = uc_addr (uc, reg);
++#if 0
++  if (reg >= UNW_TILEGX_R0 && reg <= UNW_TILEGX_R31
++      && tdep_big_endian (unw_local_addr_space)
++      && unw_local_addr_space->abi == UNW_TILEGX_ABI_O32)
++    addr += 4;
++#endif
++  return addr;
++}
++
++# endif /* UNW_LOCAL_ONLY */
++
++HIDDEN unw_dyn_info_list_t _U_dyn_info_list;
++
++/* XXX fix me: there is currently no way to locate the dyn-info list
++       by a remote unwinder.  On ia64, this is done via a special
++       unwind-table entry.  Perhaps something similar can be done with
++       DWARF2 unwind info.  */
++
++static void
++put_unwind_info (unw_addr_space_t as, unw_proc_info_t *proc_info, void *arg)
++{
++  /* it's a no-op */
++}
++
++static int
++get_dyn_info_list_addr (unw_addr_space_t as, unw_word_t *dyn_info_list_addr,
++			void *arg)
++{
++  *dyn_info_list_addr = (unw_word_t) (intptr_t) &_U_dyn_info_list;
++  return 0;
++}
++
++static int
++access_mem (unw_addr_space_t as, unw_word_t addr, unw_word_t *val, int write,
++	    void *arg)
++{
++  if ((long long)addr & (sizeof(unw_word_t) - 1))
++    return 0;
++
++  if (write)
++    {
++      Debug (16, "mem[%llx] <- %llx\n", (long long) addr, (long long) *val);
++      *(unw_word_t *) (intptr_t) addr = *val;
++    }
++  else
++    {
++      *val = *(unw_word_t *) (intptr_t) addr;
++      Debug (16, "mem[%llx] -> %llx\n", (long long) addr, (long long) *val);
++    }
++  return 0;
++}
++
++static int
++access_reg (unw_addr_space_t as, unw_regnum_t reg, unw_word_t *val, int write,
++	    void *arg)
++{
++  unw_word_t *addr;
++  ucontext_t *uc = arg;
++
++  if (unw_is_fpreg (reg))
++    goto badreg;
++
++  Debug (16, "reg = %s\n", unw_regname (reg));
++  if (!(addr = uc_addr (uc, reg)))
++    goto badreg;
++
++  if (write)
++    {
++      *(unw_word_t *) (intptr_t) addr = (tilegx_reg_t) *val;
++      Debug (12, "%s <- %llx\n", unw_regname (reg), (long long) *val);
++    }
++  else
++    {
++      *val = (tilegx_reg_t) *(unw_word_t *) (intptr_t) addr;
++      Debug (12, "%s -> %llx\n", unw_regname (reg), (long long) *val);
++    }
++  return 0;
++
++ badreg:
++  Debug (1, "bad register number %u\n", reg);
++  return -UNW_EBADREG;
++}
++
++static int
++access_fpreg (unw_addr_space_t as, unw_regnum_t reg, unw_fpreg_t *val,
++	      int write, void *arg)
++{
++  ucontext_t *uc = arg;
++  unw_fpreg_t *addr;
++
++  if (!unw_is_fpreg (reg))
++    goto badreg;
++
++  if (!(addr = uc_addr (uc, reg)))
++    goto badreg;
++
++  if (write)
++    {
++      Debug (12, "%s <- %08lx.%08lx.%08lx\n", unw_regname (reg),
++	     ((long *)val)[0], ((long *)val)[1], ((long *)val)[2]);
++      *(unw_fpreg_t *) (intptr_t) addr = *val;
++    }
++  else
++    {
++      *val = *(unw_fpreg_t *) (intptr_t) addr;
++      Debug (12, "%s -> %08lx.%08lx.%08lx\n", unw_regname (reg),
++	     ((long *)val)[0], ((long *)val)[1], ((long *)val)[2]);
++    }
++  return 0;
++
++ badreg:
++  Debug (1, "bad register number %u\n", reg);
++  /* attempt to access a non-preserved register */
++  return -UNW_EBADREG;
++}
++
++static int
++get_static_proc_name (unw_addr_space_t as, unw_word_t ip,
++		      char *buf, size_t buf_len, unw_word_t *offp,
++		      void *arg)
++{
++
++  return elf_w (get_proc_name) (as, getpid (), ip, buf, buf_len, offp);
++}
++
++/*HIDDEN void*/
++__attribute__((weak)) void
++tilegx_local_addr_space_init (void)
++{
++  memset (&local_addr_space, 0, sizeof (local_addr_space));
++  local_addr_space.big_endian = (__BYTE_ORDER == __BIG_ENDIAN);
++
++  local_addr_space.abi = UNW_TILEGX_ABI_N64;
++  local_addr_space.addr_size = sizeof (void *);
++  local_addr_space.caching_policy = UNW_CACHE_GLOBAL;
++  local_addr_space.acc.find_proc_info = dwarf_find_proc_info;
++  local_addr_space.acc.put_unwind_info = put_unwind_info;
++  local_addr_space.acc.get_dyn_info_list_addr = get_dyn_info_list_addr;
++  local_addr_space.acc.access_mem = access_mem;
++  local_addr_space.acc.access_reg = access_reg;
++  local_addr_space.acc.access_fpreg = access_fpreg;
++  local_addr_space.acc.resume = tilegx_local_resume;
++  local_addr_space.acc.get_proc_name = get_static_proc_name;
++  unw_flush_cache (&local_addr_space, 0, 0);
++}
++
++#endif /* !UNW_REMOTE_ONLY */
+diff --git a/src/tilegx/Ginit_local.c b/src/tilegx/Ginit_local.c
+new file mode 100644
+index 0000000..6ad0424
+--- /dev/null
++++ b/src/tilegx/Ginit_local.c
+@@ -0,0 +1,54 @@
++/* libunwind - a platform-independent unwind library
++   Copyright (C) 2008 CodeSourcery
++
++This file is part of libunwind.
++
++Permission is hereby granted, free of charge, to any person obtaining
++a copy of this software and associated documentation files (the
++"Software"), to deal in the Software without restriction, including
++without limitation the rights to use, copy, modify, merge, publish,
++distribute, sublicense, and/or sell copies of the Software, and to
++permit persons to whom the Software is furnished to do so, subject to
++the following conditions:
++
++The above copyright notice and this permission notice shall be
++included in all copies or substantial portions of the Software.
++
++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
++LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
++OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
++WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
++
++#include "unwind_i.h"
++#include "init.h"
++
++#ifdef UNW_REMOTE_ONLY
++
++PROTECTED int
++unw_init_local (unw_cursor_t *cursor, ucontext_t *uc)
++{
++  return -UNW_EINVAL;
++}
++
++#else /* !UNW_REMOTE_ONLY */
++
++PROTECTED int
++unw_init_local (unw_cursor_t *cursor, ucontext_t *uc)
++{
++  struct cursor *c = (struct cursor *) cursor;
++  if (tdep_needs_initialization)
++    tdep_init ();
++  
++  memset(c, 0, sizeof(unw_cursor_t));
++ 
++  Debug (1, "(cursor=%p)\n", c);
++
++  c->dwarf.as = unw_local_addr_space;
++  c->dwarf.as_arg = uc;
++  return common_init (c, 1);
++}
++
++#endif /* !UNW_REMOTE_ONLY */
+diff --git a/src/tilegx/Ginit_remote.c b/src/tilegx/Ginit_remote.c
+new file mode 100644
+index 0000000..2f814a6
+--- /dev/null
++++ b/src/tilegx/Ginit_remote.c
+@@ -0,0 +1,56 @@
++/* libunwind - a platform-independent unwind library
++   Copyright (C) 2008 CodeSourcery
++
++This file is part of libunwind.
++
++Permission is hereby granted, free of charge, to any person obtaining
++a copy of this software and associated documentation files (the
++"Software"), to deal in the Software without restriction, including
++without limitation the rights to use, copy, modify, merge, publish,
++distribute, sublicense, and/or sell copies of the Software, and to
++permit persons to whom the Software is furnished to do so, subject to
++the following conditions:
++
++The above copyright notice and this permission notice shall be
++included in all copies or substantial portions of the Software.
++
++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
++LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
++OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
++WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
++
++#include "init.h"
++#include "unwind_i.h"
++
++PROTECTED int
++unw_init_remote (unw_cursor_t *cursor, unw_addr_space_t as, void *as_arg)
++{
++#ifdef UNW_LOCAL_ONLY
++  return -UNW_EINVAL;
++#else /* !UNW_LOCAL_ONLY */
++  struct cursor *c = (struct cursor *) cursor;
++
++  if (tdep_needs_initialization)
++    tdep_init ();
++
++  Debug (1, "(cursor=%p)\n", c);
++
++  c->dwarf.as = as;
++  c->dwarf.as_arg = as_arg;
++  
++  if (as == unw_local_addr_space)
++    {
++      c->dwarf.as_arg = as_arg;
++    }
++  else
++    {
++      c->dwarf.as_arg = as_arg;
++      //c->uc = 0;
++    }
++
++  return common_init (c, 0);
++#endif /* !UNW_LOCAL_ONLY */
++}
+diff --git a/src/tilegx/Gis_signal_frame.c b/src/tilegx/Gis_signal_frame.c
+new file mode 100644
+index 0000000..94f9f5e
+--- /dev/null
++++ b/src/tilegx/Gis_signal_frame.c
+@@ -0,0 +1,113 @@
++/* libunwind - a platform-independent unwind library
++   Copyright (C) 2008 CodeSourcery
++
++This file is part of libunwind.
++
++Permission is hereby granted, free of charge, to any person obtaining
++a copy of this software and associated documentation files (the
++"Software"), to deal in the Software without restriction, including
++without limitation the rights to use, copy, modify, merge, publish,
++distribute, sublicense, and/or sell copies of the Software, and to
++permit persons to whom the Software is furnished to do so, subject to
++the following conditions:
++
++The above copyright notice and this permission notice shall be
++included in all copies or substantial portions of the Software.
++
++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
++LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
++OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
++WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
++
++#include "unwind_i.h"
++#include <stdio.h>
++#include "offsets.h"
++
++#ifdef __linux__
++#include <sys/syscall.h>
++#include <arch/abi.h>
++#else
++# error "Only support Linux!" 
++#endif
++
++#define  MOVELI_R10_RT_SIGRETURN                         \
++  ( 0x000007e051483000ULL    |                           \
++    ((unsigned long)__NR_rt_sigreturn << 43) |           \
++    ((unsigned long)TREG_SYSCALL_NR << 31) )
++#define  SWINT1      0x286b180051485000ULL 
++
++PROTECTED int
++unw_is_signal_frame (unw_cursor_t *cursor)
++{
++  struct cursor *c = (struct cursor*) cursor;
++  unw_word_t w0, w1, ip;
++  unw_addr_space_t as;
++  unw_accessors_t *a;
++  void *arg;
++  int ret;
++
++  as = c->dwarf.as;
++  a = unw_get_accessors (as);
++  arg = c->dwarf.as_arg;
++  
++  ip = c->dwarf.ip;
++  
++  if (!ip || !a->access_mem || (ip & (sizeof(unw_word_t) - 1))) return 0;
++
++  if ((ret = (*a->access_mem) (as, ip, &w0, 0, arg)) < 0)
++    return ret;
++  
++  if ((ret = (*a->access_mem) (as, ip + 8, &w1, 0, arg)) < 0)
++    return ret;
++  
++  /* Return 1 if the IP points to a RT sigreturn sequence. */
++  if (w0 == MOVELI_R10_RT_SIGRETURN && 
++      w1 ==  SWINT1)
++  {
++    return 1;
++  }
++  return 0;
++}
++
++
++PROTECTED int
++unw_handle_signal_frame (unw_cursor_t *cursor)
++{
++  int i;
++  struct cursor *c = (struct cursor *) cursor;
++  unw_word_t sc_addr, sp, sp_addr = c->dwarf.cfa;
++  struct dwarf_loc sp_loc = DWARF_LOC (sp_addr, 0);
++  int ret;
++
++  if ((ret = dwarf_get (&c->dwarf, sp_loc, &sp)) < 0)
++    return -UNW_EUNSPEC;
++  
++  /* Save the SP and PC to be able to return execution at this point
++     later in time (unw_resume).  */
++  c->sigcontext_sp = c->dwarf.cfa;
++  c->sigcontext_pc = c->dwarf.ip;
++  
++  c->sigcontext_addr = sp_addr + sizeof (siginfo_t) +
++    C_ABI_SAVE_AREA_SIZE;
++  sc_addr = c->sigcontext_addr + LINUX_UC_MCONTEXT_OFF;
++  
++  /* Update the dwarf cursor.
++     Set the location of the registers to the corresponding addresses of the
++     uc_mcontext / sigcontext structure contents.  */
++
++#define  SC_REG_OFFSET(X)   (8 * X)
++  
++  for (i = UNW_TILEGX_R0; i <= UNW_TILEGX_R55; i++)
++  {
++    c->dwarf.loc[i] = DWARF_LOC (sc_addr + SC_REG_OFFSET(i), 0);
++  }
++  
++  /* Set SP/CFA and PC/IP.  */
++  dwarf_get (&c->dwarf, c->dwarf.loc[UNW_TILEGX_R54], &c->dwarf.cfa);
++  dwarf_get (&c->dwarf, c->dwarf.loc[UNW_TILEGX_R55], &c->dwarf.ip);
++
++  return 1;
++}
+diff --git a/src/tilegx/Gregs.c b/src/tilegx/Gregs.c
+new file mode 100644
+index 0000000..561a55d
+--- /dev/null
++++ b/src/tilegx/Gregs.c
+@@ -0,0 +1,66 @@
++/* libunwind - a platform-independent unwind library
++   Copyright (C) 2008 CodeSourcery
++
++This file is part of libunwind.
++
++Permission is hereby granted, free of charge, to any person obtaining
++a copy of this software and associated documentation files (the
++"Software"), to deal in the Software without restriction, including
++without limitation the rights to use, copy, modify, merge, publish,
++distribute, sublicense, and/or sell copies of the Software, and to
++permit persons to whom the Software is furnished to do so, subject to
++the following conditions:
++
++The above copyright notice and this permission notice shall be
++included in all copies or substantial portions of the Software.
++
++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
++LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
++OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
++WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
++
++#include "unwind_i.h"
++
++/* FIXME: The following is probably unfinished and/or at least partly bogus.  */
++
++HIDDEN int
++tdep_access_reg (struct cursor *c, unw_regnum_t reg, unw_word_t *valp,
++		 int write)
++{
++  dwarf_loc_t loc = DWARF_NULL_LOC;
++  
++
++  if (reg <= UNW_TILEGX_R55)
++   loc = c->dwarf.loc[reg - UNW_TILEGX_R0];
++  else if (reg == UNW_TILEGX_CFA)
++  {
++    if (write)
++      return -UNW_EREADONLYREG;
++    *valp = c->dwarf.cfa;
++    return 0;
++  }
++  else
++  {
++    /* FIXME: IP?  Copro & shadow registers?  */
++    Debug (1, "bad register number %u\n", reg);
++    return -UNW_EBADREG;
++  }
++  
++  if (write)
++    return dwarf_put (&c->dwarf, loc, *valp);
++  else
++    return dwarf_get (&c->dwarf, loc, valp);
++}
++
++/* FIXME for TILEGX.  */
++
++HIDDEN int
++tdep_access_fpreg (struct cursor *c, unw_regnum_t reg, unw_fpreg_t *valp,
++		   int write)
++{
++  Debug (1, "bad register number %u\n", reg);
++  return -UNW_EBADREG;
++}
+diff --git a/src/tilegx/Gresume.c b/src/tilegx/Gresume.c
+new file mode 100644
+index 0000000..3b6a524
+--- /dev/null
++++ b/src/tilegx/Gresume.c
+@@ -0,0 +1,141 @@
++#include "unwind_i.h"
++#include "offsets.h"
++
++#ifndef UNW_REMOTE_ONLY
++
++HIDDEN inline int
++tilegx_local_resume (unw_addr_space_t as, unw_cursor_t *cursor, void *arg)
++{
++  int i;
++  struct cursor *c = (struct cursor *) cursor;
++  ucontext_t *uc = c->dwarf.as_arg;
++
++  Debug (1, "(cursor=%p\n", c);
++
++  /* Restore non-scratch register only, 
++     FIXME: still need work on signal case. */
++
++  __asm__ __volatile__
++    (" move  r0, %0\n"                                    \
++     " addli r1, r0, 8 * 2\n"                             \
++     " { addli r1, r0, 8 * 3  ; ld r2, r1  }\n"           \
++     " { addli r1, r0, 8 * 4  ; ld r3, r1  }\n"           \
++     " { addli r1, r0, 8 * 5  ; ld r4, r1  }\n"           \
++     " { addli r1, r0, 8 * 6  ; ld r5, r1  }\n"           \
++     " { addli r1, r0, 8 * 7  ; ld r6, r1  }\n"           \
++     " { addli r1, r0, 8 * 8  ; ld r7, r1  }\n"           \
++     " { addli r1, r0, 8 * 9  ; ld r8, r1  }\n"           \
++     " { addli r1, r0, 8 * 10 ; ld r9, r1  }\n"           \
++     " { addli r1, r0, 8 * 11 ; ld r10, r1  }\n"          \
++     " { addli r1, r0, 8 * 12 ; ld r11, r1  }\n"          \
++     " { addli r1, r0, 8 * 13  ; ld r12, r1  }\n"         \
++     " { addli r1, r0, 8 * 14  ; ld r13, r1  }\n"         \
++     " { addli r1, r0, 8 * 15  ; ld r14, r1  }\n"         \
++     " { addli r1, r0, 8 * 16  ; ld r15, r1  }\n"         \
++     " { addli r1, r0, 8 * 17  ; ld r16, r1  }\n"         \
++     " { addli r1, r0, 8 * 18  ; ld r17, r1  }\n"         \
++     " { addli r1, r0, 8 * 19  ; ld r18, r1  }\n"         \
++     " { addli r1, r0, 8 * 20  ; ld r19, r1  }\n"         \
++     " { addli r1, r0, 8 * 21  ; ld r20, r1  }\n"         \
++     " { addli r1, r0, 8 * 22  ; ld r21, r1  }\n"         \
++     " { addli r1, r0, 8 * 23  ; ld r22, r1  }\n"         \
++     " { addli r1, r0, 8 * 24  ; ld r23, r1  }\n"         \
++     " { addli r1, r0, 8 * 25  ; ld r24, r1  }\n"         \
++     " { addli r1, r0, 8 * 26  ; ld r25, r1  }\n"         \
++     " { addli r1, r0, 8 * 27  ; ld r26, r1  }\n"         \
++     " { addli r1, r0, 8 * 28  ; ld r27, r1  }\n"         \
++     " { addli r1, r0, 8 * 29  ; ld r28, r1  }\n"         \
++     " { addli r1, r0, 8 * 30  ; ld r29, r1  }\n"         \
++     " { addli r1, r0, 8 * 31  ; ld r30, r1  }\n"         \
++     " { addli r1, r0, 8 * 32  ; ld r31, r1  }\n"         \
++     " { addli r1, r0, 8 * 33  ; ld r32, r1  }\n"         \
++     " { addli r1, r0, 8 * 34  ; ld r33, r1  }\n"         \
++     " { addli r1, r0, 8 * 35  ; ld r34, r1  }\n"         \
++     " { addli r1, r0, 8 * 36  ; ld r35, r1  }\n"         \
++     " { addli r1, r0, 8 * 37  ; ld r36, r1  }\n"         \
++     " { addli r1, r0, 8 * 38  ; ld r37, r1  }\n"         \
++     " { addli r1, r0, 8 * 39  ; ld r38, r1  }\n"         \
++     " { addli r1, r0, 8 * 40  ; ld r39, r1  }\n"         \
++     " { addli r1, r0, 8 * 41  ; ld r40, r1  }\n"         \
++     " { addli r1, r0, 8 * 42  ; ld r41, r1  }\n"         \
++     " { addli r1, r0, 8 * 43  ; ld r42, r1  }\n"         \
++     " { addli r1, r0, 8 * 44  ; ld r43, r1  }\n"         \
++     " { addli r1, r0, 8 * 45  ; ld r44, r1  }\n"         \
++     " { addli r1, r0, 8 * 46  ; ld r45, r1  }\n"         \
++     " { addli r1, r0, 8 * 47  ; ld r46, r1  }\n"         \
++     " { addli r1, r0, 8 * 48  ; ld r47, r1  }\n"         \
++     " { addli r1, r0, 8 * 49  ; ld r48, r1  }\n"         \
++     " { addli r1, r0, 8 * 50  ; ld r49, r1  }\n"         \
++     " { addli r1, r0, 8 * 51  ; ld r50, r1  }\n"         \
++     " { addli r1, r0, 8 * 52  ; ld r51, r1  }\n"         \
++     " { addli r1, r0, 8 * 53  ; ld r52, r1  }\n"         \
++     " { addli r1, r0, 8 * 54  ; ld tp,  r1  }\n"         \
++     " { addli r1, r0, 8 * 55  ; ld sp,  r1  }\n"         \
++     " ld lr, r1\n"                                       \
++     " addli sp, sp, -128\n"                              \
++     " { move r10, r0; st sp, r10 } \n"                   \
++     " { addi r10, r10, 8; ld r0, r10 } \n"               \
++     " ld r1, r10\n"                                      \
++     " ld r10, sp\n"                                      \
++     " addli sp, sp, 128\n"                               \
++     " jrp   lr \n"                                       \
++     :: "r"(&uc->uc_mcontext.gregs[0]));
++
++  return 0;
++}
++
++#endif /* !UNW_REMOTE_ONLY */
++
++static inline void
++establish_machine_state (struct cursor *c)
++{
++  unw_addr_space_t as = c->dwarf.as;
++  void *arg = c->dwarf.as_arg;
++  unw_fpreg_t fpval;
++  unw_word_t val;
++  int reg;
++
++  Debug (8, "copying out cursor state\n");
++
++  for (reg = 0; reg <= UNW_REG_LAST; ++reg)
++    {
++      Debug (16, "copying %s %d\n", unw_regname (reg), reg);
++      if (unw_is_fpreg (reg))
++	{
++
++          printf("Error at %s\n", __func__);
++          exit(1);
++
++	  if (tdep_access_fpreg (c, reg, &fpval, 0) >= 0)
++	    as->acc.access_fpreg (as, reg, &fpval, 1, arg);
++	}
++      else
++	{
++	  if (tdep_access_reg (c, reg, &val, 0) >= 0)
++	    {
++	      as->acc.access_reg (as, reg, &val, 1, arg);
++	    }
++	}
++    }
++}
++
++PROTECTED int
++unw_resume (unw_cursor_t *cursor)
++{
++  struct cursor *c = (struct cursor *) cursor;
++  
++  Debug (1, "(cursor=%p) ip=0x%lx\n", c, c->dwarf.ip);
++
++  if (!c->dwarf.ip)
++    {
++      /* This can happen easily when the frame-chain gets truncated
++	 due to bad or missing unwind-info.  */
++      Debug (1, "refusing to resume execution at address 0\n");
++      return -UNW_EINVAL;
++    }
++
++  establish_machine_state (c);
++
++  return (*c->dwarf.as->acc.resume) (c->dwarf.as, (unw_cursor_t *) c,
++				     c->dwarf.as_arg);
++}
+diff --git a/src/tilegx/Gstep.c b/src/tilegx/Gstep.c
+new file mode 100644
+index 0000000..134de77
+--- /dev/null
++++ b/src/tilegx/Gstep.c
+@@ -0,0 +1,56 @@
++/* libunwind - a platform-independent unwind library
++   Copyright (C) 2008 CodeSourcery
++
++This file is part of libunwind.
++
++Permission is hereby granted, free of charge, to any person obtaining
++a copy of this software and associated documentation files (the
++"Software"), to deal in the Software without restriction, including
++without limitation the rights to use, copy, modify, merge, publish,
++distribute, sublicense, and/or sell copies of the Software, and to
++permit persons to whom the Software is furnished to do so, subject to
++the following conditions:
++
++The above copyright notice and this permission notice shall be
++included in all copies or substantial portions of the Software.
++
++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
++LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
++OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
++WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
++
++#include "unwind_i.h"
++#include "offsets.h"
++
++PROTECTED int
++unw_step (unw_cursor_t *cursor)
++{
++  struct cursor *c = (struct cursor *) cursor;
++  int ret;
++
++  Debug (1, "(cursor=%p)\n", c);
++  
++  /* Special handling the singal frame. */
++  if (unw_is_signal_frame (cursor))
++    return unw_handle_signal_frame (cursor); 
++  
++  /* Try DWARF-based unwinding... */
++  ret = dwarf_step (&c->dwarf);
++
++  if (unlikely (ret == -UNW_ESTOPUNWIND))
++  {
++    return ret;
++  }
++
++  /* Dwarf unwinding didn't work, stop.  */
++  if (unlikely (ret < 0))
++  {
++    //printf("%s ret=%d\n", __func__, ret);
++    return 0;
++  }
++
++  return (c->dwarf.ip == 0) ? 0 : 1;
++}
+diff --git a/src/tilegx/Lcreate_addr_space.c b/src/tilegx/Lcreate_addr_space.c
+new file mode 100644
+index 0000000..0f2dc6b
+--- /dev/null
++++ b/src/tilegx/Lcreate_addr_space.c
+@@ -0,0 +1,5 @@
++#define UNW_LOCAL_ONLY
++#include <libunwind.h>
++#if defined(UNW_LOCAL_ONLY) && !defined(UNW_REMOTE_ONLY)
++#include "Gcreate_addr_space.c"
++#endif
+diff --git a/src/tilegx/Lget_proc_info.c b/src/tilegx/Lget_proc_info.c
+new file mode 100644
+index 0000000..69028b0
+--- /dev/null
++++ b/src/tilegx/Lget_proc_info.c
+@@ -0,0 +1,5 @@
++#define UNW_LOCAL_ONLY
++#include <libunwind.h>
++#if defined(UNW_LOCAL_ONLY) && !defined(UNW_REMOTE_ONLY)
++#include "Gget_proc_info.c"
++#endif
+diff --git a/src/tilegx/Lget_save_loc.c b/src/tilegx/Lget_save_loc.c
+new file mode 100644
+index 0000000..9ea048a
+--- /dev/null
++++ b/src/tilegx/Lget_save_loc.c
+@@ -0,0 +1,5 @@
++#define UNW_LOCAL_ONLY
++#include <libunwind.h>
++#if defined(UNW_LOCAL_ONLY) && !defined(UNW_REMOTE_ONLY)
++#include "Gget_save_loc.c"
++#endif
+diff --git a/src/tilegx/Lglobal.c b/src/tilegx/Lglobal.c
+new file mode 100644
+index 0000000..6d7b489
+--- /dev/null
++++ b/src/tilegx/Lglobal.c
+@@ -0,0 +1,5 @@
++#define UNW_LOCAL_ONLY
++#include <libunwind.h>
++#if defined(UNW_LOCAL_ONLY) && !defined(UNW_REMOTE_ONLY)
++#include "Gglobal.c"
++#endif
+diff --git a/src/tilegx/Linit.c b/src/tilegx/Linit.c
+new file mode 100644
+index 0000000..e9abfdd
+--- /dev/null
++++ b/src/tilegx/Linit.c
+@@ -0,0 +1,5 @@
++#define UNW_LOCAL_ONLY
++#include <libunwind.h>
++#if defined(UNW_LOCAL_ONLY) && !defined(UNW_REMOTE_ONLY)
++#include "Ginit.c"
++#endif
+diff --git a/src/tilegx/Linit_local.c b/src/tilegx/Linit_local.c
+new file mode 100644
+index 0000000..68a1687
+--- /dev/null
++++ b/src/tilegx/Linit_local.c
+@@ -0,0 +1,5 @@
++#define UNW_LOCAL_ONLY
++#include <libunwind.h>
++#if defined(UNW_LOCAL_ONLY) && !defined(UNW_REMOTE_ONLY)
++#include "Ginit_local.c"
++#endif
+diff --git a/src/tilegx/Linit_remote.c b/src/tilegx/Linit_remote.c
+new file mode 100644
+index 0000000..58cb04a
+--- /dev/null
++++ b/src/tilegx/Linit_remote.c
+@@ -0,0 +1,5 @@
++#define UNW_LOCAL_ONLY
++#include <libunwind.h>
++#if defined(UNW_LOCAL_ONLY) && !defined(UNW_REMOTE_ONLY)
++#include "Ginit_remote.c"
++#endif
+diff --git a/src/tilegx/Lis_signal_frame.c b/src/tilegx/Lis_signal_frame.c
+new file mode 100644
+index 0000000..b9a7c4f
+--- /dev/null
++++ b/src/tilegx/Lis_signal_frame.c
+@@ -0,0 +1,5 @@
++#define UNW_LOCAL_ONLY
++#include <libunwind.h>
++#if defined(UNW_LOCAL_ONLY) && !defined(UNW_REMOTE_ONLY)
++#include "Gis_signal_frame.c"
++#endif
+diff --git a/src/tilegx/Lregs.c b/src/tilegx/Lregs.c
+new file mode 100644
+index 0000000..2c9c75c
+--- /dev/null
++++ b/src/tilegx/Lregs.c
+@@ -0,0 +1,5 @@
++#define UNW_LOCAL_ONLY
++#include <libunwind.h>
++#if defined(UNW_LOCAL_ONLY) && !defined(UNW_REMOTE_ONLY)
++#include "Gregs.c"
++#endif
+diff --git a/src/tilegx/Lresume.c b/src/tilegx/Lresume.c
+new file mode 100644
+index 0000000..41a8cf0
+--- /dev/null
++++ b/src/tilegx/Lresume.c
+@@ -0,0 +1,5 @@
++#define UNW_LOCAL_ONLY
++#include <libunwind.h>
++#if defined(UNW_LOCAL_ONLY) && !defined(UNW_REMOTE_ONLY)
++#include "Gresume.c"
++#endif
+diff --git a/src/tilegx/Lstep.c b/src/tilegx/Lstep.c
+new file mode 100644
+index 0000000..c1ac3c7
+--- /dev/null
++++ b/src/tilegx/Lstep.c
+@@ -0,0 +1,5 @@
++#define UNW_LOCAL_ONLY
++#include <libunwind.h>
++#if defined(UNW_LOCAL_ONLY) && !defined(UNW_REMOTE_ONLY)
++#include "Gstep.c"
++#endif
+diff --git a/src/tilegx/elfxx.c b/src/tilegx/elfxx.c
+new file mode 100644
+index 0000000..07d3d12
+--- /dev/null
++++ b/src/tilegx/elfxx.c
+@@ -0,0 +1,27 @@
++/* libunwind - a platform-independent unwind library
++   Copyright (C) 2008 CodeSourcery
++
++This file is part of libunwind.
++
++Permission is hereby granted, free of charge, to any person obtaining
++a copy of this software and associated documentation files (the
++"Software"), to deal in the Software without restriction, including
++without limitation the rights to use, copy, modify, merge, publish,
++distribute, sublicense, and/or sell copies of the Software, and to
++permit persons to whom the Software is furnished to do so, subject to
++the following conditions:
++
++The above copyright notice and this permission notice shall be
++included in all copies or substantial portions of the Software.
++
++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
++LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
++OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
++WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
++
++#include "libunwind_i.h"
++
++#include "../src/elfxx.c"
+diff --git a/src/tilegx/gen-offsets.c b/src/tilegx/gen-offsets.c
+new file mode 100644
+index 0000000..8704bb2
+--- /dev/null
++++ b/src/tilegx/gen-offsets.c
+@@ -0,0 +1,30 @@
++#include <stdio.h>
++#include <stddef.h>
++#include <ucontext.h>
++
++#define UC(N,X) \
++  printf ("#define LINUX_UC_" N "_OFF\t0x%X\n", offsetof (ucontext_t, X))
++
++#define SC(N,X) \
++  printf ("#define LINUX_SC_" N "_OFF\t0x%X\n", offsetof (struct sigcontext, X))
++
++int
++main (void)
++{
++  printf (
++"/* Linux-specific definitions: */\n\n"
++
++"/* Define various structure offsets to simplify cross-compilation.  */\n\n"
++
++"/* Offsets for TILEGX Linux \"ucontext_t\":  */\n\n");
++
++  UC ("FLAGS", uc_flags);
++  UC ("LINK", uc_link);
++  UC ("STACK", uc_stack);
++  UC ("MCONTEXT", uc_mcontext);
++  UC ("SIGMASK", uc_sigmask);
++
++  UC ("MCONTEXT_GREGS", uc_mcontext.gregs);
++
++  return 0;
++}
+diff --git a/src/tilegx/getcontext.S b/src/tilegx/getcontext.S
+new file mode 100644
+index 0000000..14d3ad4
+--- /dev/null
++++ b/src/tilegx/getcontext.S
+@@ -0,0 +1,112 @@
++/* libunwind - a platform-independent unwind library
++   Copyright (C) 2008 CodeSourcery
++
++This file is part of libunwind.
++
++Permission is hereby granted, free of charge, to any person obtaining
++a copy of this software and associated documentation files (the
++"Software"), to deal in the Software without restriction, including
++without limitation the rights to use, copy, modify, merge, publish,
++distribute, sublicense, and/or sell copies of the Software, and to
++permit persons to whom the Software is furnished to do so, subject to
++the following conditions:
++
++The above copyright notice and this permission notice shall be
++included in all copies or substantial portions of the Software.
++
++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
++LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
++OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
++WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
++ 
++#include "offsets.h"
++#include <endian.h>
++
++     	.text
++
++# define REG(X)    LINUX_UC_MCONTEXT_GREGS + 8 * (X)  
++        .global _Utilegx_getcontext
++	.type	_Utilegx_getcontext, %function
++	# This is a stub version of getcontext() for TILEGX which only stores core
++	# registers.
++_Utilegx_getcontext:
++        { addli sp, sp, -128 }
++        # save r29
++        { addli r29, r0, REG(0); st  sp, r29 }
++        { addli r29, r0, REG(1); st r29, r0  }
++        { addli r29, r0, REG(2); st r29, r1  }
++        { addli r29, r0, REG(3); st r29, r2  }
++        { addli r29, r0, REG(4); st r29, r3  }
++        { addli r29, r0, REG(5); st r29, r4  }
++        { addli r29, r0, REG(6); st r29, r5  }
++        { addli r29, r0, REG(7); st r29, r6  }
++        { addli r29, r0, REG(8); st r29, r7  }
++        { addli r29, r0, REG(9); st r29, r8  }
++
++        { addli r29, r0, REG(10); st r29, r9 }
++        { addli r29, r0, REG(11); st r29, r10 }
++        { addli r29, r0, REG(12); st r29, r11 }
++        { addli r29, r0, REG(13); st r29, r12 }
++        { addli r29, r0, REG(14); st r29, r13 }
++        { addli r29, r0, REG(15); st r29, r14 }
++        { addli r29, r0, REG(16); st r29, r15 }
++        { addli r29, r0, REG(17); st r29, r16 }
++        { addli r29, r0, REG(18); st r29, r17 }
++        { addli r29, r0, REG(19); st r29, r18 }
++        
++        { addli r29, r0, REG(20); st r29, r19 }
++        { addli r29, r0, REG(21); st r29, r20 }
++        { addli r29, r0, REG(22); st r29, r21 }
++        { addli r29, r0, REG(23); st r29, r22 }
++        { addli r29, r0, REG(24); st r29, r23 }
++        { addli r29, r0, REG(25); st r29, r24 }
++        { addli r29, r0, REG(26); st r29, r25 }
++        { addli r29, r0, REG(27); st r29, r26 }
++        { addli r29, r0, REG(28); st r29, r27 }
++
++        { addli r29, r0, REG(30); st r29, r28 }
++        
++        { addli r29, r0, REG(31); st r29, r30 }
++        { addli r29, r0, REG(32); st r29, r31 } 
++        { addli r29, r0, REG(33); st r29, r32 }
++        { addli r29, r0, REG(34); st r29, r33 }                     
++        { addli r29, r0, REG(35); st r29, r34 }
++        { addli r29, r0, REG(36); st r29, r35 } 
++        { addli r29, r0, REG(37); st r29, r36 }
++        { addli r29, r0, REG(38); st r29, r37 }                     
++        { addli r29, r0, REG(39); st r29, r38 }
++        { addli r29, r0, REG(40); st r29, r39 } 
++        { addli r29, r0, REG(41); st r29, r40 }
++        { addli r29, r0, REG(42); st r29, r41 }                     
++        { addli r29, r0, REG(43); st r29, r42 }
++        { addli r29, r0, REG(44); st r29, r43 } 
++        { addli r29, r0, REG(45); st r29, r44 }
++        { addli r29, r0, REG(46); st r29, r45 }                     
++        { addli r29, r0, REG(47); st r29, r46 }
++        { addli r29, r0, REG(48); st r29, r47 } 
++        { addli r29, r0, REG(49); st r29, r48 }
++        { addli r29, r0, REG(50); st r29, r49 }                     
++        { addli r29, r0, REG(51); st r29, r50 }
++        { addli r29, r0, REG(52); st r29, r51 } 
++        { addli r29, r0, REG(53); st r29, r52 }
++        st r29, tp                     
++        addli r29, r0, REG(55)
++        st r29, lr
++        # recover r29 
++        ld r29, sp
++        # save r1
++        st sp, r1
++        addli  r1, r0, REG(29)
++        st r1, r29
++        #recover r1
++        ld r1, sp
++        # recover sp
++        addli sp, sp, 128
++        addli r0, r0, REG(54)
++        st r0, sp
++        movei r0, 0
++        jrp lr         
++        .size	_Utilegx_getcontext, .-_Utilegx_getcontext
+diff --git a/src/tilegx/init.h b/src/tilegx/init.h
+new file mode 100644
+index 0000000..d2ea8a6
+--- /dev/null
++++ b/src/tilegx/init.h
+@@ -0,0 +1,58 @@
++/* libunwind - a platform-independent unwind library
++   Copyright (C) 2008 CodeSourcery
++
++This file is part of libunwind.
++
++Permission is hereby granted, free of charge, to any person obtaining
++a copy of this software and associated documentation files (the
++"Software"), to deal in the Software without restriction, including
++without limitation the rights to use, copy, modify, merge, publish,
++distribute, sublicense, and/or sell copies of the Software, and to
++permit persons to whom the Software is furnished to do so, subject to
++the following conditions:
++
++The above copyright notice and this permission notice shall be
++included in all copies or substantial portions of the Software.
++
++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
++LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
++OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
++WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
++
++#include "unwind_i.h"
++
++static inline int
++common_init (struct cursor *c, unsigned use_prev_instr)
++{
++  int ret, i;
++
++  for (i = 0; i < 56; i++)
++    c->dwarf.loc[i] = DWARF_REG_LOC (&c->dwarf, UNW_TILEGX_R0 + i);
++  for (i = 56; i < DWARF_NUM_PRESERVED_REGS; ++i)
++    c->dwarf.loc[i] = DWARF_NULL_LOC;
++ 
++  ret = dwarf_get (&c->dwarf, c->dwarf.loc[55], &c->dwarf.ip);
++  if (ret < 0)
++    return ret;
++
++  ret = dwarf_get (&c->dwarf, DWARF_REG_LOC (&c->dwarf, UNW_TILEGX_R54),
++		   &c->dwarf.cfa);
++  if (ret < 0)
++    return ret;
++
++  /* FIXME: Initialisation for other registers.  */
++
++  c->dwarf.args_size = 0;
++  c->dwarf.ret_addr_column = 0;
++  c->dwarf.stash_frames = 0;
++  c->dwarf.use_prev_instr = use_prev_instr;
++  c->dwarf.pi_valid = 0;
++  c->dwarf.pi_is_dynamic = 0;
++  c->dwarf.hint = 0;
++  c->dwarf.prev_rs = 0;
++
++  return 0;
++}
+diff --git a/src/tilegx/is_fpreg.c b/src/tilegx/is_fpreg.c
+new file mode 100644
+index 0000000..d1c8bff
+--- /dev/null
++++ b/src/tilegx/is_fpreg.c
+@@ -0,0 +1,33 @@
++/* libunwind - a platform-independent unwind library
++   Copyright (C) 2008 CodeSourcery
++
++This file is part of libunwind.
++
++Permission is hereby granted, free of charge, to any person obtaining
++a copy of this software and associated documentation files (the
++"Software"), to deal in the Software without restriction, including
++without limitation the rights to use, copy, modify, merge, publish,
++distribute, sublicense, and/or sell copies of the Software, and to
++permit persons to whom the Software is furnished to do so, subject to
++the following conditions:
++
++The above copyright notice and this permission notice shall be
++included in all copies or substantial portions of the Software.
++
++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
++LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
++OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
++WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
++
++#include "libunwind_i.h"
++
++/* FIXME: TILEGX has no FP. */
++
++PROTECTED int
++unw_is_fpreg (int regnum)
++{
++  return 0;
++}
+diff --git a/src/tilegx/offsets.h b/src/tilegx/offsets.h
+new file mode 100644
+index 0000000..252d26a
+--- /dev/null
++++ b/src/tilegx/offsets.h
+@@ -0,0 +1,12 @@
++/* Linux-specific definitions: */
++
++/* Define various structure offsets to simplify cross-compilation.  */
++
++/* Offsets for TILEGX Linux "ucontext_t":  */
++
++#define LINUX_UC_FLAGS_OFF	0x0
++#define LINUX_UC_LINK_OFF	0x8
++#define LINUX_UC_STACK_OFF	0x10
++#define LINUX_UC_MCONTEXT_OFF	0x28
++#define LINUX_UC_SIGMASK_OFF	0x228
++#define LINUX_UC_MCONTEXT_GREGS	0x28
+diff --git a/src/tilegx/regname.c b/src/tilegx/regname.c
+new file mode 100644
+index 0000000..ea31286
+--- /dev/null
++++ b/src/tilegx/regname.c
+@@ -0,0 +1,52 @@
++/* libunwind - a platform-independent unwind library
++   Copyright (C) 2008 CodeSourcery
++
++This file is part of libunwind.
++
++Permission is hereby granted, free of charge, to any person obtaining
++a copy of this software and associated documentation files (the
++"Software"), to deal in the Software without restriction, including
++without limitation the rights to use, copy, modify, merge, publish,
++distribute, sublicense, and/or sell copies of the Software, and to
++permit persons to whom the Software is furnished to do so, subject to
++the following conditions:
++
++The above copyright notice and this permission notice shall be
++included in all copies or substantial portions of the Software.
++
++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
++LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
++OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
++WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
++
++#include "unwind_i.h"
++
++static const char *regname[] =
++  {
++    /* 0.  */
++    "r0",  "r1",  "r2",  "r3",  "r4",  "r5",  "r6",  "r7",
++    /* 8.  */
++    "r8",  "r9",  "r10", "r11",  "r12",  "r13",  "r14",  "r15",
++    /* 16.  */
++    "r16",  "r17",  "r18", "r19",  "r20",  "r21",  "r22",  "r23",
++    /* 24.  */
++    "r24",  "r25",  "r26", "r27",  "r28",  "r29",  "r30",  "r31",
++    /* 32.  */
++    "r32",  "r33",  "r34", "r35",  "r36",  "r37",  "r38",  "r39",
++    /* 40.  */
++    "r40",  "r41",  "r42", "r43",  "r44",  "r45",  "r46",  "r47",
++    /* 48.  */
++    "r48",  "r49",  "r50", "r51",  "r52",  "r53",  "r54",  "r55"
++  };
++
++PROTECTED const char *
++unw_regname (unw_regnum_t reg)
++{
++  if (reg < (unw_regnum_t) ARRAY_SIZE (regname))
++    return regname[reg];
++  else
++    return "???";
++}
+diff --git a/src/tilegx/siglongjmp.S b/src/tilegx/siglongjmp.S
+new file mode 100644
+index 0000000..8f9aa44
+--- /dev/null
++++ b/src/tilegx/siglongjmp.S
+@@ -0,0 +1,8 @@
++	/* Dummy implementation for now.  */
++
++	.globl _UI_siglongjmp_cont
++	.globl _UI_longjmp_cont
++
++_UI_siglongjmp_cont:
++_UI_longjmp_cont:
++	jrp	lr
+diff --git a/src/tilegx/unwind_i.h b/src/tilegx/unwind_i.h
+new file mode 100644
+index 0000000..ba4836a
+--- /dev/null
++++ b/src/tilegx/unwind_i.h
+@@ -0,0 +1,44 @@
++/* libunwind - a platform-independent unwind library
++   Copyright (C) 2008 CodeSourcery
++
++This file is part of libunwind.
++
++Permission is hereby granted, free of charge, to any person obtaining
++a copy of this software and associated documentation files (the
++"Software"), to deal in the Software without restriction, including
++without limitation the rights to use, copy, modify, merge, publish,
++distribute, sublicense, and/or sell copies of the Software, and to
++permit persons to whom the Software is furnished to do so, subject to
++the following conditions:
++
++The above copyright notice and this permission notice shall be
++included in all copies or substantial portions of the Software.
++
++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
++LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
++OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
++WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
++
++#ifndef unwind_i_h
++#define unwind_i_h
++
++#include <memory.h>
++#include <stdint.h>
++
++#include <libunwind-tilegx.h>
++
++#include "libunwind_i.h"
++
++#define tilegx_local_resume		UNW_OBJ(local_resume)
++#define tilegx_local_addr_space_init	UNW_OBJ(local_addr_space_init)
++//#define tilegx_scratch_loc	        UNW_OBJ(scratch_loc)
++
++extern int tilegx_local_resume (unw_addr_space_t as, unw_cursor_t *cursor,
++			     void *arg);
++//extern dwarf_loc_t tilegx_scratch_loc (struct cursor *c, unw_regnum_t reg);
++extern void tilegx_local_addr_space_init (void);
++
++#endif /* unwind_i_h */
+diff --git a/tests/check-namespace.sh.in b/tests/check-namespace.sh.in
+index 0608607..789352d 100644
+--- a/tests/check-namespace.sh.in
++++ b/tests/check-namespace.sh.in
+@@ -125,6 +125,14 @@ check_local_unw_abi () {
+ 	    match _UL${plat}_dwarf_search_unwind_table
+ 	    match _U${plat}_setcontext
+ 	    ;;
++        tilegx)
++            match _U${plat}_is_fpreg
++	    match _UL${plat}_dwarf_search_unwind_table
++            match _UL${plat}_local_addr_space_init
++            match _U${plat}_get_elf_image
++            match ${plat}_lock     
++            ;;
++
+ 	*)
+ 	    match _U${plat}_is_fpreg
+ 	    match _UL${plat}_dwarf_search_unwind_table
+@@ -188,6 +196,13 @@ check_generic_unw_abi () {
+ 	    match _U${plat}_is_fpreg
+ 	    match _U${plat}_dwarf_search_unwind_table
+ 	    ;;
++        tilegx)
++            match _U${plat}_dwarf_search_unwind_table
++            match _U${plat}_get_elf_image
++            match _U${plat}_is_fpreg
++            match _U${plat}_local_addr_space_init
++            match ${plat}_lock
++            ;;
+ 	*)
+ 	    match _U${plat}_is_fpreg
+ 	    match _U${plat}_dwarf_search_unwind_table
+diff --git a/tests/flush-cache.S b/tests/flush-cache.S
+index 2a17165..61f01cd 100644
+--- a/tests/flush-cache.S
++++ b/tests/flush-cache.S
+@@ -71,7 +71,21 @@ flush_cache:
+ 	.globl flush_cache
+ flush_cache:
+ 	bx    lr
++#elif defined(__tilegx__)
++      	.text
++	.globl flush_cache
++flush_cache:
+ 
++        andi r0, r0, -64
++1:      {
++         flush r0 ;
++         addi  r0, r0, 64
++        }
++        {
++         bgtz r1, 1b ;
++         addi r1, r1, -64
++        }
++        jrp   lr
+ #else
+ # error Need flush_cache code for this architecture.
+ #endif
+-- 
+1.7.1
+
+
+From 327b56c1d0a50139dac049a3333a41234242d399 Mon Sep 17 00:00:00 2001
+From: Your Namegit <zliu@gx-1.internal.tilera.com>
+Date: Fri, 18 Jul 2014 11:13:47 -0400
+Subject: [PATCH 2/3] Address a test failure for Tilegx, tests/Gtest-resume-sig.c
+
+---
+ tests/Gtest-resume-sig.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
+
+diff --git a/tests/Gtest-resume-sig.c b/tests/Gtest-resume-sig.c
+index 68e17eb..be4334a 100644
+--- a/tests/Gtest-resume-sig.c
++++ b/tests/Gtest-resume-sig.c
+@@ -105,6 +105,11 @@ handler (int sig)
+       if ((ret = unw_step (&c)) < 0)		/* step to signal trampoline */
+ 	panic ("unw_step(2) failed: ret=%d\n", ret);
+ 
++#if defined(UNW_TARGET_TILEGX)
++      if ((ret = unw_step (&c)) < 0)		/* step to signal trampoline */
++	panic ("unw_step(2) failed: ret=%d\n", ret);
++#endif
++
+       if ((ret = unw_get_reg (&c, UNW_REG_IP, &ip)) < 0)
+ 	panic ("unw_get_reg(IP) failed: ret=%d\n", ret);
+       if (verbose)
+-- 
+1.7.1
+
+
+From 4d26dd765f244f045f6916558224e217e54ba6e4 Mon Sep 17 00:00:00 2001
+From: Your Namegit <zliu@gx-1.internal.tilera.com>
+Date: Fri, 18 Jul 2014 13:16:36 -0400
+Subject: [PATCH 3/3] minor syntax fixes.
+
+---
+ src/tilegx/Ginit_remote.c |   10 ----------
+ src/tilegx/Gresume.c      |    8 ++------
+ src/tilegx/Gstep.c        |    1 -
+ 3 files changed, 2 insertions(+), 17 deletions(-)
+
+diff --git a/src/tilegx/Ginit_remote.c b/src/tilegx/Ginit_remote.c
+index 2f814a6..a78393e 100644
+--- a/src/tilegx/Ginit_remote.c
++++ b/src/tilegx/Ginit_remote.c
+@@ -40,16 +40,6 @@ unw_init_remote (unw_cursor_t *cursor, unw_addr_space_t as, void *as_arg)
+ 
+   c->dwarf.as = as;
+   c->dwarf.as_arg = as_arg;
+-  
+-  if (as == unw_local_addr_space)
+-    {
+-      c->dwarf.as_arg = as_arg;
+-    }
+-  else
+-    {
+-      c->dwarf.as_arg = as_arg;
+-      //c->uc = 0;
+-    }
+ 
+   return common_init (c, 0);
+ #endif /* !UNW_LOCAL_ONLY */
+diff --git a/src/tilegx/Gresume.c b/src/tilegx/Gresume.c
+index 3b6a524..051ff84 100644
+--- a/src/tilegx/Gresume.c
++++ b/src/tilegx/Gresume.c
+@@ -102,12 +102,8 @@ establish_machine_state (struct cursor *c)
+       Debug (16, "copying %s %d\n", unw_regname (reg), reg);
+       if (unw_is_fpreg (reg))
+ 	{
+-
+-          printf("Error at %s\n", __func__);
+-          exit(1);
+-
+-	  if (tdep_access_fpreg (c, reg, &fpval, 0) >= 0)
+-	    as->acc.access_fpreg (as, reg, &fpval, 1, arg);
++          Debug (1, "no fp!");
++          abort ();
+ 	}
+       else
+ 	{
+diff --git a/src/tilegx/Gstep.c b/src/tilegx/Gstep.c
+index 134de77..71fe61c 100644
+--- a/src/tilegx/Gstep.c
++++ b/src/tilegx/Gstep.c
+@@ -48,7 +48,6 @@ unw_step (unw_cursor_t *cursor)
+   /* Dwarf unwinding didn't work, stop.  */
+   if (unlikely (ret < 0))
+   {
+-    //printf("%s ret=%d\n", __func__, ret);
+     return 0;
+   }
+ 
+-- 
+1.7.1
+

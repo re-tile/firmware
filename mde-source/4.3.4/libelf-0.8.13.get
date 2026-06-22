@@ -1,0 +1,48 @@
+#!/bin/bash -ex
+
+# Run this script to create the corresponding source subdir in the CWD.
+
+me=$(basename $0)
+DIR=$(basename $0 .get)
+if [ -d $DIR ]; then
+    echo "$me: Cannot replace existing directory '$DIR'." >&2
+    exit 1
+fi
+
+MD5SUM=4136d7b4c04df68b686570afa26988ac
+FROM=http://distcache.freebsd.org/ports-distfiles
+ORIG=$DIR.tar.gz
+
+if [ ! -f $ORIG ]; then
+    if [ -n "$DOWNLOAD_CACHE" -a -f "$DOWNLOAD_CACHE/$ORIG" ]; then
+        ORIG="$DOWNLOAD_CACHE/$ORIG"
+    else
+        curl -L $FROM/$ORIG > $ORIG.tmp
+        mv $ORIG.tmp $ORIG
+    fi
+fi
+
+if [ $MD5SUM != `md5sum $ORIG | cut -f1 -d' '` ]; then
+    echo "$me: Wrong md5sum for '$ORIG'." >&2
+    exit 1
+fi
+
+tar xf $ORIG
+
+# Update "config.guess" and "config.sub" files.
+TRT=`uname -m | sed -e "s,tile.*,," -e "s,..*,$TILERA_ROOT/tile,"`
+cd $DIR
+for name in config.guess config.sub; do
+    for path in `find . -name $name`; do
+        echo "Updating '$path'..."
+        cp -f $TRT/usr/lib/rpm/$name $path
+    done
+done
+
+# NOTE: We have no actual patches.
+##--cat $0 | patch -d $DIR -p1 -s
+
+exit 0
+
+# The actual Tilera patch starts here.
+

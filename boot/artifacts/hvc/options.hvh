@@ -1,0 +1,66 @@
+# This file supports various things related to "options".
+
+
+# If CPU_SPEED is defined, request the specified cpu speed.
+#
+ifdef CPU_SPEED
+options cpu_speed=$CPU_SPEED
+endif
+
+
+# If STRIPE_MEMORY is defined, use it to set the value of the stripe_memory
+# option; legal values are the empty string, "never", "silent", and "always".
+# Otherwise, default to "silent".  On TILEPro36, only "silent" is legal, and
+# is ignored.
+#
+ifdef STRIPE_MEMORY
+options stripe_memory=$STRIPE_MEMORY
+else
+options stripe_memory=silent
+endif
+
+
+# If MEM_SPEED is defined, request the specified memory speed.
+#
+ifdef MEM_SPEED
+options mem_speed=$MEM_SPEED
+endif
+
+
+# If POST is defined, request the specified POST mode.
+#
+ifdef POST
+options post=$POST
+endif
+
+
+# If STATS is defined, request statistics.
+#
+ifdef STATS
+options stats
+endif
+
+
+# If MEM_ERROR is defined, request the specified MEM_ERROR mode.
+#
+ifdef MEM_ERROR
+options mem_error=$MEM_ERROR
+endif
+
+
+# If OPTIONS is defined, request those options.
+#
+ifdef OPTIONS
+options $OPTIONS
+endif
+
+
+
+# The CONFIG_VERSION variable is automatically set by tile-mkboot (and thus
+# indirectly by tile-monitor) to populate /sys/hypervisor/config_version
+# with configuration information.  It can be overridden with
+# "--hvd CONFIG_VERSION=[...]".
+#
+ifdef CONFIG_VERSION
+config_version $CONFIG_VERSION
+endif

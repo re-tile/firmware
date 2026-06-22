@@ -1,0 +1,70 @@
+#!/bin/bash -ex
+
+# Run this script to create the corresponding source subdir in the CWD.
+
+me=$(basename $0)
+DIR=$(basename $0 .get)
+if [ -d $DIR ]; then
+    echo "$(basename $0): Cannot replace existing directory '$DIR'." >&2
+    exit 1
+fi
+
+MD5SUM=8b8316d7c9469149a6cc6234478347f7
+FROM=http://www.open-iscsi.org/bits
+ORIG=$DIR.tar.gz
+
+if [ ! -f $ORIG ]; then
+    if [ -n "$DOWNLOAD_CACHE" -a -f "$DOWNLOAD_CACHE/$ORIG" ]; then
+        ORIG="$DOWNLOAD_CACHE/$ORIG"
+    else
+	curl -L $FROM/$ORIG > $ORIG.tmp
+        mv $ORIG.tmp $ORIG
+    fi
+fi
+
+if [ $MD5SUM != `md5sum $ORIG | cut -f1 -d' '` ]; then
+    echo "$me: Wrong md5sum for '$ORIG'." >&2
+    exit 1
+fi
+
+tar xf $ORIG
+
+cat $0 | patch -d $DIR -p1 -s
+
+exit 0
+
+# The actual Tilera patch starts here.
+
+diff -Nubr open-iscsi-2.0-873/Makefile open-iscsi-2.0-873-tile/Makefile
+--- open-iscsi-2.0-873/Makefile	2012-05-20 17:59:24.000000000 -0700
++++ open-iscsi-2.0-873-tile/Makefile	2012-08-29 04:27:37.603441000 -0700
+@@ -16,6 +16,7 @@
+ 
+ MANPAGES = doc/iscsid.8 doc/iscsiadm.8 doc/iscsi_discovery.8
+ PROGRAMS = usr/iscsid usr/iscsiadm utils/iscsi_discovery utils/iscsi-iname
++BOOTTOOL_PROG = usr/iscsistart
+ INSTALL = install
+ ETCFILES = etc/iscsid.conf
+ IFACEFILES = etc/iface.example
+@@ -42,7 +43,9 @@
+ 	@echo "Read README file for detailed information."
+ 
+ utils/open-isns/Makefile: utils/open-isns/configure utils/open-isns/Makefile.in
+-	cd utils/open-isns; ./configure CFLAGS="$(OPTFLAGS)" --with-security=no
++	cd utils/open-isns; ./configure CFLAGS="$(OPTFLAGS)" \
++        --with-security=no --with-slp=no \
++        --host=tilegx-unknown-linux-gnu --build=x86_64-unknown-linux-gnu
+ 
+ kernel: force
+ 	$(MAKE) -C kernel
+@@ -136,6 +139,10 @@
+ 		echo "***************************************************" ; \
+ 	fi
+ 
++install_boottool: $(BOOTTOOL_PROG)
++	$(INSTALL) -d $(DESTDIR)$(sbindir)
++	$(INSTALL) -m 755 $^ $(DESTDIR)$(sbindir)
++
+ depend:
+ 	for dir in usr utils utils/fwparam_ibft; do \
+ 		$(MAKE) -C $$dir $@; \

@@ -1,0 +1,85 @@
+#!/bin/bash -ex
+
+# Run this script to create the corresponding source subdir in the CWD.
+
+me=$(basename $0)
+DIR=$(basename $0 .get)
+if [ -d $DIR ]; then
+    echo "$me: Cannot replace existing directory '$DIR'." >&2
+    exit 1
+fi
+
+# Original hosts for this are a little sketchy, so host it ourselves.
+MD5SUM=12bfc0235fa8c5555bb538fb02ede3e7
+FROM=http://www.tilera.com/scm
+ORIG=portmap-6.0.tar.bz2
+
+if [ ! -f $ORIG ]; then
+    if [ -n "$DOWNLOAD_CACHE" -a -f "$DOWNLOAD_CACHE/$ORIG" ]; then
+        ORIG="$DOWNLOAD_CACHE/$ORIG"
+    else
+        curl -L $FROM/$ORIG > $ORIG.tmp
+        mv $ORIG.tmp $ORIG
+    fi
+fi
+
+if [ $MD5SUM != `md5sum $ORIG | cut -f1 -d' '` ]; then
+    echo "$me: Wrong md5sum for '$ORIG'." >&2
+    exit 1
+fi
+
+tar xf $ORIG
+
+cat $0 | patch -d $DIR -p1 -s
+
+exit 0
+
+# The actual Tilera patch starts here.
+
+diff -ru portmap-6.0/pmap_check.c tilera-portmap/pmap_check.c
+--- portmap-6.0/pmap_check.c	2007-05-10 23:02:10.000000000 -0400
++++ tilera-portmap/pmap_check.c	2008-01-24 14:13:35.530875000 -0500
+@@ -44,7 +44,9 @@
+ #include <netinet/in.h>
+ #include <rpc/rpcent.h>
+ #endif
++#ifdef HOSTS_ACCESS
+ #include <tcpd.h>
++#endif
+ #include <arpa/inet.h>
+ #include <grp.h>
+ 
+--- portmap/Makefile.orig	2009-10-05 13:15:38.685275000 -0400
++++ portmap/Makefile	2009-10-05 13:16:04.041129000 -0400
+@@ -2,6 +2,12 @@
+ ####################################
+ ### Beginning of configurable stuff.
+ 
++# Strip installed binaries?
++STRIP=-s
++
++# Force installed owner and group to be root.
++INSTALL_OWNER=-o root -g root
++
+ # By default, logfile entries are written to the same file as used for
+ # sendmail transaction logs. Change the definition of the following macro
+ # if you disagree. See `man 3 syslog' for examples. Some syslog versions
+@@ -136,12 +142,12 @@
+ 	sed $(MAN_SED) < portmap.8 > portmap.man
+ 
+ install: all
+-	install -o root -g root -m 0755 -s portmap ${BASEDIR}/sbin
+-	install -o root -g root -m 0755 -s pmap_dump ${BASEDIR}/sbin
+-	install -o root -g root -m 0755 -s pmap_set ${BASEDIR}/sbin
+-	install -o root -g root -m 0644 portmap.man ${BASEDIR}/usr/share/man/man8/portmap.8
+-	install -o root -g root -m 0644 pmap_dump.8 ${BASEDIR}/usr/share/man/man8
+-	install -o root -g root -m 0644 pmap_set.8 ${BASEDIR}/usr/share/man/man8
++	install $(INSTALL_OWNER) -m 0755 ${STRIP} portmap ${BASEDIR}/sbin
++	install $(INSTALL_OWNER) -m 0755 ${STRIP} pmap_dump ${BASEDIR}/sbin
++	install $(INSTALL_OWNER) -m 0755 ${STRIP} pmap_set ${BASEDIR}/sbin
++	install $(INSTALL_OWNER) -m 0644 portmap.man ${BASEDIR}/usr/share/man/man8/portmap.8
++	install $(INSTALL_OWNER) -m 0644 pmap_dump.8 ${BASEDIR}/usr/share/man/man8
++	install $(INSTALL_OWNER) -m 0644 pmap_set.8 ${BASEDIR}/usr/share/man/man8
+ 
+ clean:
+ 	rm -f *.o portmap pmap_dump pmap_set from_local \

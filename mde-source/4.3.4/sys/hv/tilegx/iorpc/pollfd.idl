@@ -1,0 +1,27 @@
+// Copyright 2014 Tilera Corporation. All Rights Reserved.
+//
+//   The source code contained or described herein and all documents
+//   related to the source code ("Material") are owned by Tilera
+//   Corporation or its suppliers or licensors.  Title to the Material
+//   remains with Tilera Corporation or its suppliers and licensors. The
+//   software is licensed under the Tilera MDE License.
+//
+//   Unless otherwise agreed by Tilera in writing, you may not remove or
+//   alter this notice or any other notice embedded in Materials by Tilera
+//   or Tilera's suppliers or licensors in any way.
+//
+
+//
+// The routines in this file are common to all devices which support
+// interrupts delivered via pollable file descriptors; this is mainly
+// so that the kernel IORPC driver can call close_pollfd() without the
+// cooperation of the user process when the pollable FD is closed.
+// 
+
+// Arm a pollable file descriptor.
+code = 0x9000
+int arm_pollfd(POLLFD pollfd);
+
+// Close a pollable file descriptor.
+code = 0x9001
+int close_pollfd(POLLFD pollfd);

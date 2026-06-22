@@ -1,0 +1,190 @@
+//
+// Copyright 2014 Tilera Corporation. All Rights Reserved.
+//
+//   The source code contained or described herein and all documents
+//   related to the source code ("Material") are owned by Tilera
+//   Corporation or its suppliers or licensors.  Title to the Material
+//   remains with Tilera Corporation or its suppliers and licensors. The
+//   software is licensed under the Tilera MDE License.
+//
+//   Unless otherwise agreed by Tilera in writing, you may not remove or
+//   alter this notice or any other notice embedded in Materials by Tilera
+//   or Tilera's suppliers or licensors in any way.
+//
+
+// Various parameters needed by the generator
+env prefix gxio_trio
+env hvarg trio_state_t* ts
+env hvarg int svc_dom
+env allinclude hv/drv_trio_intf.h
+env hvinclude tilegx/drivers/trio/trio.h
+env userinclude gxio/trio.h
+env linuxinclude gxio/trio.h
+env linuxinclude gxio/kiorpc.h
+
+code = 0x1400
+
+// De-allocate ASIDs.
+int dealloc_asid(uint asid);
+
+// Allocate ASIDs.
+int alloc_asids(uint count, uint first, uint flags);
+
+// Unregister a memory page in the given IOTLB.
+nokernel
+int unregister_page_aux(MEM_BUFFER(ALIGN_4KB, FLAGS) page,
+                        uint stack, uint64_t vpn);
+
+// Register a memory page (of any possible size) in the given IOTLB.
+// ISSUE: Should we use "uint vpn"?
+nokernel
+int register_page_aux(MEM_BUFFER(ALIGN_4KB, ALIGN_SELF_SIZE, FLAGS) page,
+                      uint stack, uint64_t vpn);
+
+// Allocate memory map regions.
+int alloc_memory_maps(uint count, uint first, uint flags);
+
+// Free a memory map region.
+nokernel
+int free_memory_map_aux(uint map);
+
+// Initialize a memory map region.
+nokernel
+int init_memory_map_aux(uint map, uint64_t vpn, uint64_t size, uint asid,
+                        uint mac, uint64_t bus_address, uint order_mode);
+
+// Read interrupt status from TRIO_INT_VEC0 to 4.
+nokernel
+int read_isr_status_aux(uint vec_num);
+
+// Write interrupt status to TRIO_INT_VEC0 to 4 to clear particular interrupts.
+nokernel
+int write_isr_status_aux(uint vec_num, uint32_t bits_to_clear);
+
+// Enable bus-to-tile interrupts for a particular memory map region.
+nokernel
+int enable_mmi(INTERRUPT bind, uint map, uint mode);
+
+// Mask interrupts for a particular memory map region.
+nokernel
+int mask_mmi_aux(uint map, uint mask);
+
+// Unmask interrupts for a particular memory map region.
+nokernel
+int unmask_mmi_aux(uint map, uint mask);
+
+// Read the bus-to-tile interrupt state bits within a memory map region.
+nokernel
+int read_mmi_bits_aux(uint map);
+
+// Write the bus-to-tile interrupt state bits within a memory map region.
+nokernel
+int write_mmi_bits_aux(uint map, uint bits, uint mode);
+
+// Allocate scatter queue regions.
+nokernel
+int alloc_scatter_queues(uint count, uint first, uint flags);
+
+// Free a scatter queue region.
+nokernel
+int free_scatter_queue_aux(uint queue);
+
+// Initialize a scatter queue region.
+nokernel
+int init_scatter_queue_aux(uint queue, uint64_t size, uint asid, 
+                           uint mac, uint64_t bus_address, uint order_mode);
+
+// Enable bus-to-tile interrupts for a particular scatter queue.
+nokernel
+int enable_sqi(INTERRUPT bind, uint queue);
+
+// Allocate PIO regions.
+int alloc_pio_regions(uint count, uint first, uint flags);
+
+// Free a PIO region.
+nokernel
+int free_pio_region_aux(uint pio_region);
+
+// Initialize a PIO region.
+int init_pio_region_aux(uint pio_region, uint mac, uint32_t bus_address_hi,
+                        uint flags);
+
+// Free a push DMA ring.
+nokernel
+int free_push_dma_ring_aux(uint ring);
+
+// Allocate push DMA rings.
+nokernel
+int alloc_push_dma_ring(uint count, uint first, uint flags);
+
+// Free a pull DMA ring.
+nokernel
+int free_pull_dma_ring_aux(uint ring);
+
+// Allocate pull DMA rings.
+nokernel
+int alloc_pull_dma_ring(uint count, uint first, uint flags);
+
+// Initialize a push DMA ring.
+nokernel
+int init_push_dma_ring_aux(MEM_BUFFER(ALIGN_4KB, ALIGN_SELF_SIZE, FLAGS) mem,
+                           uint ring, uint mac, uint asid, uint flags);
+
+// Enable push dma completion interrupt for a particular ring.
+nokernel
+int enable_push_dma_isr(INTERRUPT bind, uint ring);
+
+// Initialize a pull DMA ring.
+nokernel
+int init_pull_dma_ring_aux(MEM_BUFFER(ALIGN_4KB, ALIGN_SELF_SIZE, FLAGS) mem,
+                           uint ring, uint mac, uint asid, uint flags);
+
+// Enable pull dma completion interrupt for a particular ring.
+nokernel
+int enable_pull_dma_isr(INTERRUPT bind, uint ring);
+
+// Map all of a client's memory via the given IOTLB.
+nouser, nokernel
+int register_client_memory(uint iotlb, HV_PTE pte, uint flags);
+
+// Map each memory controller using the I/O MMU.
+nouser
+int init_memory_map_mmu_aux(uint m_nodes, ulong va, uint64_t size, uint asid,
+                            uint mac, uint64_t bus_address, uint node,
+                            uint order_mode);
+
+// Get PCIe port properties.
+nouser, read
+int get_port_property(struct pcie_trio_ports_property *trio_ports);
+
+// Configure legacy interrupts for a PCIe MAC.
+int config_legacy_intr(INTERRUPT inter, uint mac, uint intx);
+
+// Configure message interrupts for a PCIe MAC.
+int config_msi_intr(INTERRUPT inter, uint mac, uint mem_map,
+		    uint64_t mem_map_base, uint64_t mem_map_limit,
+		    uint asid);
+
+// Configure message interrupts for a PCIe character stream.
+nokernel
+int config_char_intr(INTERRUPT inter, uint mac, uint mem_map,
+                     uint push_dma_ring, uint pull_dma_ring,
+                     pcie_stream_intr_config_sel_t conf);
+
+// Set the MPS and MRS for a PCIe MAC.
+nouser
+int set_mps_mrs(uint16_t mps, uint16_t mrs, uint mac);
+
+// Force a PCIe link to come up for a root port.
+nouser
+int force_rc_link_up(uint mac);
+
+// Force a PCIe link to come up for a end-point port.
+nouser
+int force_ep_link_up(uint mac);
+
+// Un-configure StreamIO MAC error interrupts.
+int unconfig_sio_mac_err_intr(uint mac);
+
+// Configure StreamIO MAC error interrupts.
+int config_sio_mac_err_intr(INTERRUPT inter, uint mac);

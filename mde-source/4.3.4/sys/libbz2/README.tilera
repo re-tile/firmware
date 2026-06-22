@@ -1,0 +1,5 @@
+The source files in this directory are a subset of those distributed
+with bzip2-1.0.5, which may be obtained from http://bzip.org; see the
+LICENSE file in this directory for usage restrictions.  There is one
+minor modification, to bzlib.c, which is conditionalized by #ifdef
+BZ_NO_DEFAULT_ALLOC.

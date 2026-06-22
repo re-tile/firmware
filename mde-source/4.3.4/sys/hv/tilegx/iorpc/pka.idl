@@ -1,0 +1,32 @@
+//
+// Copyright 2014 Tilera Corporation. All Rights Reserved.
+//
+//   The source code contained or described herein and all documents
+//   related to the source code ("Material") are owned by Tilera
+//   Corporation or its suppliers or licensors.  Title to the Material
+//   remains with Tilera Corporation or its suppliers and licensors. The
+//   software is licensed under the Tilera MDE License.
+//
+//   Unless otherwise agreed by Tilera in writing, you may not remove or
+//   alter this notice or any other notice embedded in Materials by Tilera
+//   or Tilera's suppliers or licensors in any way.
+//
+
+// Various parameters needed by the generator
+env prefix gxio_mica_pka
+env hvarg mica_state_t* ms
+env hvinclude tilegx/drivers/mica/mica.h
+env userinclude gxio/mica.h
+env userinclude gxio/pka.h
+env linuxinclude gxio/kiorpc.h
+env linuxinclude gxio/pka.h
+
+
+code = 0x2200
+
+// Configure command queue low-water mark interrupt.
+int cfg_cmd_queue_empty_interrupt(INTERRUPT intr, int ring);
+
+// Configure high-water mark interrupt.
+int cfg_res_queue_full_interrupt(INTERRUPT intr, int ring);
+

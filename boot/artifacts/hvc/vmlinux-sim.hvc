@@ -1,0 +1,18 @@
+# The default configuration file for use with the simulator.
+
+# Handle CPU_SPEED, STRIPE_MEMORY, OPTIONS, and CONFIG_VERSION.
+
+include options.hvh
+
+# Include all possible devices.  Don't complain if any are not found.
+
+include devices.hvh
+
+# Run vmlinux with some special default arguments.
+
+ifndef ARGS
+define ARGS TLR_INTERACTIVE=n TLR_TELNETD=n TLR_SSHD=n
+endif
+
+client vmlinux
+  args $ARGS $XARGS

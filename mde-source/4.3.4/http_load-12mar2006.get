@@ -1,0 +1,176 @@
+#!/bin/bash -ex
+
+# Run this script to create the corresponding source subdir in the CWD.
+
+me=$(basename $0)
+DIR=$(basename $0 .get)
+if [ -d $DIR ]; then
+    echo "$me: Cannot replace existing directory '$DIR'." >&2
+    exit 1
+fi
+
+MD5SUM=d1a6c2261f8828a3f319e86ff0517219
+FROM=http://acme.com/software/http_load
+ORIG=$DIR.tar.gz
+
+if [ ! -f $ORIG ]; then
+    if [ -n "$DOWNLOAD_CACHE" -a -f "$DOWNLOAD_CACHE/$ORIG" ]; then
+        ORIG="$DOWNLOAD_CACHE/$ORIG"
+    else
+        curl -L $FROM/$ORIG > $ORIG.tmp
+        mv $ORIG.tmp $ORIG
+    fi
+fi
+
+if [ $MD5SUM != `md5sum $ORIG | cut -f1 -d' '` ]; then
+    echo "$me: Wrong md5sum for '$ORIG'." >&2
+    exit 1
+fi
+
+tar xf $ORIG
+
+cat $0 | patch -d $DIR -p1 -s
+
+exit 0
+
+# The actual Tilera patch starts here.
+
+--- old/http_load.c	2006-03-12 14:17:03.000000000 -0500
++++ new/http_load.c	2010-01-22 13:48:32.983798800 -0500
+@@ -169,6 +169,8 @@
+ static char* proxy_hostname;
+ static unsigned short proxy_port;
+ 
++static int expected_size = 0;
++
+ static struct timeval start_at;
+ static int fetches_started, connects_completed, responses_completed, fetches_completed;
+ static long long total_bytes;
+@@ -358,6 +360,14 @@
+ 		*colon = '\0';
+ 		}
+ 	    }
++	else if ( strncmp( argv[argn], "-expectKB", strlen( argv[argn] ) ) == 0 && argn + 1 < argc )
++        {
++	    expected_size = atoi( argv[++argn] ) * 1024;
++        }
++	else if ( strncmp( argv[argn], "-expectMB", strlen( argv[argn] ) ) == 0 && argn + 1 < argc )
++        {
++	    expected_size = atoi( argv[++argn] ) * 1024 * 1024;
++        }
+ 	else
+ 	    usage();
+ 	++argn;
+@@ -920,7 +930,8 @@
+     if ( double_check )
+ 	{
+ 	/* Check to make sure the non-blocking connect succeeded. */
+-	int err, errlen;
++	int err;
++       size_t errlen;
+ 
+ 	if ( connect(
+ 		 connections[cnum].conn_fd,
+@@ -1079,6 +1090,16 @@
+ #endif
+     if ( bytes_read <= 0 )
+ 	{
++        if (connections[cnum].bytes == 0) {
++            fprintf(stderr, "%s: End of stream before any bytes read.\n",
++                    urls[connections[cnum].url_num].url_str);
++            fflush(stderr);
++        }
++        else if (connections[cnum].bytes < connections[cnum].content_length) {
++            fprintf(stderr, "%s: End of stream before expected bytes read.\n",
++                    urls[connections[cnum].url_num].url_str);
++            fflush(stderr);
++        }
+ 	close_connection( cnum );
+ 	return;
+ 	}
+@@ -1607,6 +1628,11 @@
+ 	    if ( connections[cnum].content_length != -1 &&
+ 		 connections[cnum].bytes >= connections[cnum].content_length )
+ 		{
++                if (connections[cnum].bytes > connections[cnum].content_length) {
++                    fprintf(stderr, "%s: Closing connection because more than expected bytes were read.\n",
++                            urls[connections[cnum].url_num].url_str);
++                    fflush(stderr);
++                }
+ 		close_connection( cnum );
+ 		return;
+ 		}
+@@ -1699,19 +1725,49 @@
+ 		}
+ 	    }
+ 	}
+-    else
+-	{
+-	if ( ! urls[url_num].got_bytes )
+-	    {
+-	    urls[url_num].bytes = connections[cnum].bytes;
+-	    urls[url_num].got_bytes = 1;
+-	    }
++    else {
++	if ( ! urls[url_num].got_bytes ) {
++            if (expected_size > 0 && connections[cnum].bytes != expected_size) {
++                if (connections[cnum].bytes <= 0) {
++                    (void) fprintf(stderr, "%s: NULL READ  -- read %i bytes, content_length %i bytes, expected %i.\n",
++                                   urls[url_num].url_str,
++                                   (int) connections[cnum].bytes,
++                                   (int) connections[cnum].content_length,
++                                   expected_size);
++                }
++                else {
++                    (void) fprintf(stderr, "%s: SHORT READ -- read %i bytes, content_length %i bytes, expected %i.\n",
++                                   urls[url_num].url_str,
++                                   (int) connections[cnum].bytes,
++                                   (int) connections[cnum].content_length,
++                                   expected_size);
++                }
++                fflush(stderr);
++		++total_badbytes;
++            }
++            else {
++                urls[url_num].bytes = connections[cnum].bytes;
++                urls[url_num].got_bytes = 1;
++            }
++        }
+ 	else
+ 	    {
+-	    if ( connections[cnum].bytes != urls[url_num].bytes )
+-		{
+-		(void) fprintf(
+-		    stderr, "%s: byte count wrong\n", urls[url_num].url_str );
++	    if ( connections[cnum].bytes != urls[url_num].bytes ) {
++                if (connections[cnum].bytes <= 0) {
++                    (void) fprintf(stderr, "%s: NULL READ  -- read %i bytes, content_length %i bytes, cached size %i.\n",
++                                   urls[url_num].url_str,
++                                   (int) connections[cnum].bytes,
++                                   (int) connections[cnum].content_length,
++                                   (int) urls[url_num].bytes);
++                }
++                else {
++                    (void) fprintf(stderr, "%s: SHORT READ -- read %i bytes, content_length %i bytes, cached size %i.\n",
++                                   urls[url_num].url_str,
++                                   (int) connections[cnum].bytes,
++                                   (int) connections[cnum].content_length,
++                                   (int) urls[url_num].bytes);
++                }
++                fflush(stderr);
+ 		++total_badbytes;
+ 		}
+ 	    }
+@@ -1767,9 +1823,10 @@
+     if ( elapsed > 0.01 )
+ 	{
+ 	(void) printf(
+-	    "%g fetches/sec, %g bytes/sec\n",
++	    "%g fetches/sec, %g bytes/sec, %g Gb/sec\n",
+ 	    (float) fetches_completed / elapsed,
+-	    (float) total_bytes / elapsed );
++	    (float) total_bytes / elapsed,
++            (float) total_bytes / elapsed * 8 / 1000000000);
+ 	}
+     if ( connects_completed > 0 )
+ 	(void) printf(

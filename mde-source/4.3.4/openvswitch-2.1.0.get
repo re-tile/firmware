@@ -1,0 +1,192 @@
+#!/bin/bash -ex
+
+# Run this script to create the corresponding source subdir in the CWD.
+
+me=$(basename $0)
+DIR=$(basename $0 .get)
+if [ -d $DIR ]; then
+    echo "$me: Cannot replace existing directory '$DIR'." >&2
+    exit 1
+fi
+
+# Original hosts for this are a little sketchy, so host it ourselves.
+MD5SUM=7c5861b0ef7f3002c15c61be6f5066f2
+FROM=http://openvswitch.org/releases/
+ORIG=openvswitch-2.1.0.tar.gz
+
+if [ ! -f $ORIG ]; then
+    if [ -n "$DOWNLOAD_CACHE" -a -f "$DOWNLOAD_CACHE/$ORIG" ]; then
+        ORIG="$DOWNLOAD_CACHE/$ORIG"
+    else
+        curl -L $FROM/$ORIG > $ORIG.tmp
+        mv $ORIG.tmp $ORIG
+    fi
+fi
+
+if [ $MD5SUM != `md5sum $ORIG | cut -f1 -d' '` ]; then
+    echo "$me: Wrong md5sum for '$ORIG'." >&2
+    exit 1
+fi
+
+tar xf $ORIG
+
+cat $0 | patch -d $DIR -p1 -s
+
+exit 0
+
+# The actual Tilera patch starts here.
+From 66e566914b696babfe7692ae2363be017560beaa Mon Sep 17 00:00:00 2001
+From: Cyril Chemparathy <cchemparathy@tilera.com>
+Date: Thu, 10 Apr 2014 17:39:29 -0700
+Subject: [PATCH 1/3] Tilera: Avoid running depmod when installing modules.
+
+This uselessly breaks on cross builds.
+---
+ datapath/linux/Makefile.main.in | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/datapath/linux/Makefile.main.in b/datapath/linux/Makefile.main.in
+index 88f144c..2e445ac 100644
+--- a/datapath/linux/Makefile.main.in
++++ b/datapath/linux/Makefile.main.in
+@@ -71,7 +71,6 @@ default:
+ 
+ modules_install:
+ 	$(MAKE) -C $(KSRC) M=$(builddir) modules_install
+-	depmod `sed -n 's/#define UTS_RELEASE "\([^"]*\)"/\1/p' $(KSRC)/include/generated/utsrelease.h`
+ endif
+ 
+ # Much of the kernel build system in this file is derived from Intel's
+-- 
+1.8.3.1
+
+From a454bf7a8202fc5308985439378f16db4d38507d Mon Sep 17 00:00:00 2001
+From: Cyril Chemparathy <cchemparathy@tilera.com>
+Date: Thu, 10 Apr 2014 17:40:22 -0700
+Subject: [PATCH 2/3] Tilera: Add optional DB listener.
+
+This commit enables listening on a tcp port, controllable with
+--db-tcp-port=<port> argument to ovs-ctl.
+---
+ utilities/ovs-ctl.in | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/utilities/ovs-ctl.in b/utilities/ovs-ctl.in
+index 0735160..0e71ba7 100755
+--- a/utilities/ovs-ctl.in
++++ b/utilities/ovs-ctl.in
+@@ -184,6 +184,9 @@ start_ovsdb () {
+         done
+         set "$@" -vconsole:emer -vsyslog:err -vfile:info
+         set "$@" --remote=punix:"$DB_SOCK"
++	if [ -n "$DB_TCP_PORT" ]; then
++		set "$@" --remote=ptcp:"$DB_TCP_PORT"
++	fi
+         set "$@" --private-key=db:Open_vSwitch,SSL,private_key
+         set "$@" --certificate=db:Open_vSwitch,SSL,certificate
+         set "$@" --bootstrap-ca-cert=db:Open_vSwitch,SSL,ca_cert
+@@ -513,6 +516,8 @@ set_defaults () {
+     DB_SCHEMA=$datadir/vswitch.ovsschema
+     EXTRA_DBS=
+ 
++    DB_TCP_PORT=
++
+     PROTOCOL=gre
+     DPORT=
+     SPORT=
+@@ -583,6 +588,7 @@ File location options:
+   --db-file=FILE     database file name (default: $DB_FILE)
+   --db-sock=SOCKET   JSON-RPC socket name (default: $DB_SOCK)
+   --db-schema=FILE   database schema file name (default: $DB_SCHEMA)
++  --db-tcp-port=PORT database TCP port (default: $DB_TCP_PORT)
+ 
+ Options for "enable-protocol":
+   --protocol=PROTOCOL  protocol to enable with iptables (default: gre)
+-- 
+1.8.3.1
+
+From be1c307d9ca77747d338d2ad5d940a043c074eb5 Mon Sep 17 00:00:00 2001
+From: Cyril Chemparathy <cchemparathy@tilera.com>
+Date: Thu, 10 Apr 2014 17:43:03 -0700
+Subject: [PATCH 3/3] Tilera: Configure daemon CPU affinity.
+
+We add yet another argument to ovs-ctl, this time allowing us to setup CPU
+affinity at init.
+---
+ utilities/ovs-ctl.in | 2 ++
+ utilities/ovs-lib.in | 3 +++
+ 2 files changed, 5 insertions(+)
+
+diff --git a/utilities/ovs-ctl.in b/utilities/ovs-ctl.in
+index 0e71ba7..4430524 100755
+--- a/utilities/ovs-ctl.in
++++ b/utilities/ovs-ctl.in
+@@ -500,6 +500,7 @@ enable_protocol () {
+ 
+ set_defaults () {
+     SYSTEM_ID=
++    CPU_AFFINITY=
+ 
+     DELETE_BRIDGES=no
+ 
+@@ -577,6 +578,7 @@ Less important options for "start", "restart" and "force-reload-kmod":
+   --no-mlockall                  do not lock all of ovs-vswitchd into memory
+   --ovsdb-server-priority=NICE   set ovsdb-server's niceness (default: $OVSDB_SERVER_PRIORITY)
+   --ovs-vswitchd-priority=NICE   set ovs-vswitchd's niceness (default: $OVS_VSWITCHD_PRIORITY)
++  --cpu-affinity=AFFINITY        set daemon cpu affinity (default: $CPU_AFFINITY)
+ 
+ Debugging options for "start", "restart" and "force-reload-kmod":
+   --ovsdb-server-wrapper=WRAPPER
+diff --git a/utilities/ovs-lib.in b/utilities/ovs-lib.in
+index 029ed3b..09a57d7 100644
+--- a/utilities/ovs-lib.in
++++ b/utilities/ovs-lib.in
+@@ -145,6 +145,9 @@ start_daemon () {
+     set "$@" --pidfile="$rundir/$daemon.pid"
+     set "$@" --detach --monitor
+ 
++    # cpu affinity
++    [ -z "$CPU_AFFINITY" ] || set taskset -c $CPU_AFFINITY "$@"
++
+     # wrapper
+     case $wrapper in
+         valgrind)
+-- 
+1.8.3.1
+
+From acaeb75f563f8125377a753249cd85f04da9a588 Mon Sep 17 00:00:00 2001
+From: Cyril Chemparathy <cchemparathy@tilera.com>
+Date: Thu, 21 Aug 2014 14:24:27 -0700
+Subject: [PATCH 4/4] Tilera: Reflect kernel changes to IP ID assignment.
+
+Newer 3.10 kernels have changed the IP ID allocation interface (see
+commit 73f156a6e8c1074ac6327e0abd1169e95eb66463 in kernel code).  This breaks
+Open vSwitch tunnel support code unless fixed as below.
+
+Unfortunately, the version checking required to conditionally compile this fix
+is a nightmare on account of a mainline fix having been backported to various
+points on stable trees.  Therefore, this patch doesn't even attempt to version
+check here, instead we ensure that this works with Tilera MDE 4.3.1 and newer
+releases.
+
+Signed-off-by: Cyril Chemparathy <cchemparathy@tilera.com>
+---
+ datapath/linux/compat/ip_tunnels_core.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/datapath/linux/compat/ip_tunnels_core.c b/datapath/linux/compat/ip_tunnels_core.c
+index 66d5e02..d1a38bd 100644
+--- a/datapath/linux/compat/ip_tunnels_core.c
++++ b/datapath/linux/compat/ip_tunnels_core.c
+@@ -67,7 +67,7 @@ int iptunnel_xmit(struct rtable *rt,
+ 	iph->daddr	=	dst;
+ 	iph->saddr	=	src;
+ 	iph->ttl	=	ttl;
+-	__ip_select_ident(iph, &rt_dst(rt), (skb_shinfo(skb)->gso_segs ?: 1) - 1);
++	__ip_select_ident(iph, skb_shinfo(skb)->gso_segs ?: 1);
+ 
+ 	err = ip_local_out(skb);
+ 	if (unlikely(net_xmit_eval(err)))
+-- 
+1.8.3.1
+

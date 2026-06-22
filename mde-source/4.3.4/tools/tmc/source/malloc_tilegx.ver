@@ -1,0 +1,27 @@
+GLIBC_2.12 {
+  # interface of malloc functions
+  __libc_calloc; __libc_free; __libc_mallinfo; __libc_malloc;
+  __libc_mallopt; __libc_memalign; __libc_pvalloc; __libc_realloc;
+  __libc_valloc;
+  __morecore;
+
+  # c*
+  calloc; cfree;
+
+  # f*
+  free;
+
+  # m*
+  mallinfo; malloc; malloc_get_state; malloc_info; malloc_set_state;
+  malloc_stats; malloc_trim; malloc_usable_size; mallopt; memalign;
+
+  # p*
+  posix_memalign;
+  pvalloc;
+
+  # r*
+  realloc;
+
+  # v*
+  valloc;
+};

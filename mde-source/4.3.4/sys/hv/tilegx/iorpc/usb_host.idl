@@ -1,0 +1,33 @@
+//
+// Copyright 2014 Tilera Corporation. All Rights Reserved.
+//
+//   The source code contained or described herein and all documents
+//   related to the source code ("Material") are owned by Tilera
+//   Corporation or its suppliers or licensors.  Title to the Material
+//   remains with Tilera Corporation or its suppliers and licensors. The
+//   software is licensed under the Tilera MDE License.
+//
+//   Unless otherwise agreed by Tilera in writing, you may not remove or
+//   alter this notice or any other notice embedded in Materials by Tilera
+//   or Tilera's suppliers or licensors in any way.
+//
+
+// Various parameters needed by the generator
+env prefix gxio_usb_host
+env hvarg usb_host_state_t* us
+env hvarg int is_ehci
+env allinclude hv/drv_usb_host_intf.h
+env hvinclude tilegx/drivers/usb_host/usb_host.h
+env linuxinclude asm/page.h
+env linuxinclude gxio/kiorpc.h
+env linuxinclude gxio/usb_host.h
+
+
+code = 0x1800
+
+// Configure interrupts.
+int cfg_interrupt(INTERRUPT inter);
+
+// Map all of a client's memory via the IOTLB.
+nouser
+int register_client_memory(HV_PTE pte, uint flags);

@@ -1,0 +1,277 @@
+                 Tilera Source Distribution README
+
+        Copyright 2013 Tilera Corporation.  All Rights Reserved.
+
+
+Most Tilera packages are built natively from SRPMs, acquired from
+CentOS 6.3 ("http://vault.centos.org/6.3/os/Source/SPackages/") or
+EPEL ("http://dl.fedoraproject.org/pub/epel/6/SRPMS/").
+
+These SRPMs can be rebuilt natively, using "/usr/bin/rpmbuild-tilera",
+which will apply the Tilera-specific patches in "/usr/lib/rpm/tilera/".
+
+To build SRPMs, you will first need to install several RPMs which are
+not included in the small tile tarball, including autoconf, automake,
+libtool, pkgconfig, redhat-rpm-config, and rpm-build, plus of course
+any additional RPMs required by the SRPM which you are trying to build.
+
+Note that the full tile tarball contains the result of installing all
+of the RPMs built by Tilera (except the "debuginfo" RPMs).
+
+
+Most other MDE components are built from sources in this directory.
+
+Third-party packages are generally provided by "*.get" scripts, which,
+when run in a given working directory, will download the open-source
+tarball (or SRPM) for the particular package (if needed), extract it
+into a source subdirectory with a similar name, and then apply the
+patch that is contained in the "*.get" script.  The resulting sources
+can usually be built by running "configure" and "make" (see below).
+
+The remaining system sources are shipped in the "sys" directory:
+
+ - sys/hv, the Tilera hypervisor
+ - sys/bme, the Tilera Bare Metal Environment
+ - sys/common_hvbme, code shared by "hv" and "bme"
+ - sys/boot/makebootrom, the "tile-mkrom" program
+ - sys/bogux, a sample minimal supervisor
+ - sys/libc, support library used by hv and bogux
+ - sys/libbz2, support library used by hv and bogux
+ - sys/mpipe, mPIPE default classifier
+
+The remaining user-level sources are shipped in the "tools" directory:
+
+ - tools/gxcr, the Tilera MiCA library
+ - tools/gxio, the Tilera gxio library
+ - tools/gxpci, the Tilera TRIO library
+ - tools/handy, a Tilera helper library
+ - tools/manager, the Tilera monitor and shepherd
+ - tools/mbootcli, a Tilera command line tool for mboot
+ - tools/op2xml, a Tilera utility for processing OProfile sample data
+ - tools/oprofile, the oprofile tool
+ - tools/pci, some Tilera PCIe utilities
+ - tools/perf2xml, a Tilera utility for processing Linux perf sample data
+ - tools/thd, a minimal HTTP daemon for development/debug purposes
+ - tools/tmc, the Tilera Multicore Components (TMC) library
+
+Many of the tools are shipped under a dual license that allows
+commercial use via the Tilera MDE License, or at your choice, the GNU
+Lesser General Public License version 2.1.  The latter license is
+shipped in this directory in the file COPYING.LIB.
+
+To natively build the non-SRPM sources:
+
+    You will need to install the basic tile tarball on your root
+    filesystem, or export it via "tile-monitor --root".
+
+    Note that this directory will be available as "/usr/tilera/src".
+
+To cross-build the non-SRPM sources:
+
+    In addition to a copy of the Tilera MDE, and a version of Linux which
+    is supported by the MDE, you will need the following tools on your
+    system to be able to build everything:
+
+	Python (we use Python 2.5)
+	A C++ compiler (the Makefiles are set up to use g++; we use
+	    version 4.4.0)
+	GNU make (we use version 3.81)
+	doxygen (only if you want to use it to build docs; we use a
+	   modified version of 1.5.7)
+
+    We aren't aware of any strict dependencies on particular versions
+    of the tools but we have not tested with versions other than those
+    listed above.
+
+    If you are cross-building on an x86 host platform, you must have
+    the "TILERA_ROOT" variable set in your environment pointing to
+    an appropriate installation subdirectory of the Tilera MDE before
+    attempting to do any builds.  For example:
+
+    $ eval `/opt/TileraMDE-4.0.0.123456/tilegx/bin/tile-env`
+
+Build procedure:
+
+  * To build a hypervisor, do the following in this directory:
+
+	make -C sys
+
+    The various generated hypervisor components will be written to sys/hv/;
+    you can run tile-monitor with the --hv-bin-dir flag to boot using them.
+
+  * To build a boot image, do the following in this directory:
+
+	make -C sys bootrom
+
+    The generated bootable image will be written to vmlinux.bootrom,
+    and you can run tile-monitor with the --bootrom-file flag to boot it.
+    (This is not recommended; typically you only need to build a boot
+    image when you will be booting from SPI ROM.)
+
+  * To build Doxygen documentation for the hypervisor source code, do
+    the following:
+
+	make -C sys/hv docs
+
+    The generated documentation may be examined by pointing a browser
+    at sys/hv/docs/html/index.html.
+
+  * To build Linux, cd to a directory you wish to hold the source code
+    and run the "linux-*.get" script from this directory to download,
+    unpack, and patch the source code.  NOTE: There are two linux-*.get
+    scripts; the older version is the baseline supported kernel, and the
+    newer version is provided on an experimental, unsupported basis.
+
+    Next, create an empty directory, "cd" into it, and run the
+    "tile-prepare" script that was placed in the Linux source directory.
+    This will set up the directory so you can run "make" to build Linux.
+    You may also re-configure Linux prior to building, if you wish, for
+    example by editing the ".config" file, or running "make menuconfig".
+
+    Building Linux will create a "vmlinux" file, which you can
+    reference by path in the tile-mkboot command to include in a
+    bootrom file, or use as the secondary boot image for mboot.
+
+  * To build Busybox, cd to a directory you wish to hold the source code
+    and run the "busybox-*.get" script from this directory to download,
+    unpack, and patch the source code.  Then create an empty directory,
+    "cd" into it, and run the "tile-prepare" script that was placed
+    in the Busybox source directory.
+
+    This will set up the directory so you can run "make" to build
+    Busybox.  You may also re-configure Busybox prior to building, if
+    you wish, for example by editing the ".config" file, or running
+    "make menuconfig".
+
+    Building Busybox will create a "busybox" binary, which you can upload
+    to a Tilera chip, or reference by path in a Linux contents.txt file.
+
+  * To build an initramfs cpio archive to use with the Linux boot on
+    a machine without persistent disk storage, choose a "contents"
+    file (e.g. $TILERA_ROOT/tile/usr/lib/initramfs/default/contents.txt)
+    and pass that as the first argument to tile-gen-initramfs.
+    The second argument should be the name of the desired initramfs
+    archive (typically ending in .cpio.gz).  You may copy the
+    "default" directory and modify the contents to make your own.
+
+  * To build an mboot bootrom from the shipped MDE contents, do:
+    
+    $TILERA_ROOT/bin/tile-mkboot --compress -o my-mboot.bootrom \
+      vmlinux=$TILERA_ROOT/tile/boot/vmlinux_mboot \
+      classifier=$TILERA_ROOT/tile/boot/classifier --hvc vmlinux.hvc
+
+    If you want to modify the included Linux, you can build your own
+    by starting from arch/tile/configs/${ARCH}_mbootconfig.  (See Linux
+    build instructions above.)  You should copy the initramfs.cpio
+    file that has the mboot userspace into the "usr" directory of the
+    kernel build tree first.
+
+    If you want to modify the standard initramfs contents, you can
+    build your own by starting with
+    $TILERA_ROOT/usr/lib/initramfs/mboot/contents.txt and the files
+    in that directory.  (See initramfs build instructions above.)
+
+    If you want to modify the included Busybox (shipped in
+    $TILERA_ROOT/tile/usr/lib/mboot/busybox), you can build your own
+    by starting from the Busybox mboot/tile-defconfig.  (See Busybox
+    build instructions above.)
+
+    If you modify the standard initramfs contents or any of its
+    included files (such as busybox), you must rebuild the included
+    Linux (as above) afterwards, since by default we embed the mboot
+    initramfs in the mboot vmlinux, and note if you want to boot the
+    mboot vmlinux using tile-monitor, you need to specify --no-initramfs
+    to avoid loading the default initramfs file in the MDE.
+
+  * To build Bogux, do the following:
+
+	make -C sys/bogux
+
+    A bootable image will be written to sys/bogux/bogux-sim.bootrom;
+    you can use tile-monitor with the --bootrom-file flag to boot it.
+
+  * To build the Bare Metal Environment (BME) library, do the following:
+
+	make -C sys/libc && make -C sys/bme
+
+    The resulting library will be written to sys/bme/libc.a.
+
+  * To build gcc, cd to a directory you wish to hold the source code, and run
+    the "gcc-4.4.*.get" script from this directory to download, unpack,
+    and patch the source code.  Select and cd to a build directory,
+    and run the configure script in the source directory with the
+    following arguments:
+
+    <path_to_src>/configure --prefix=<path>
+    --enable-languages=<languages> --disable-bootstrap
+
+    The "prefix" flag specifies the installation path ("/usr/local" is
+    a decent choice).  The "enable-languages" flag specifies a comma
+    separated list of languages to support.  The full list of
+    languages supported are "c,c++,fortran,objc,obj-c++,java", from
+    which you can select a subset.  The "disable-bootstrap" flag tells
+    the compiler not to bootstrap itself.
+
+    Then run "make -j16", and "make install".
+
+    The same procedure applies if you want to install gcc 4.6, using
+    the corresponding get script.
+
+    Note that building gcc natively will require first installing the
+    gmp-devel, mpfr-devel, flex, bison, and m4 RPMs.
+
+  * To build glibc, cd to a directory you wish to hold the source code, and
+    run the "glibc-2.12*.get" script from this directory to download,
+    unpack, and patch the source code.  Select and cd to a build
+    directory, and run the configure script natively in the source
+    directory with the following arguments:
+
+	<path_to_src>/configure --prefix=/usr --enable-static-nss \
+	  --enable-add-ons=nptl,c_stubs,libidn \
+	  --with-tls --with-__thread \
+	  --disable-profile --enable-experimental-malloc \
+	  CFLAGS="-fasynchronous-unwind-tables -DNDEBUG -g -O3"
+	make
+
+    The cross-build directions are somewhat more complex; see the
+    Tilera open-source web page (http://www.tilera.com/scm/) for
+    instructions on how to do it.
+
+  * To build the Tilera Multicore Library, do the following:
+
+        make -C tools/tmc
+
+    The libtmc.a and libtmc.so.1 files will be built in tools/tmc.
+
+    For information on separating the build from the source tree,
+    see tools/tmc/Makefile.
+
+  * To build newlib, cd to a directory you wish to hold the source code
+    and run the "newlib-*.get" script from this directory to download,
+    unpack, and patch the source code.  Then create an empty directory,
+    "cd" into it, and run the "tile-prepare" script that was placed
+    in the newlib source directory.
+
+    This will set up the directory so you can run "make" to build
+    newlib.  Building newlib will create libc.a, libm.a, and crt0.o
+    that you can use to link against binaries built with -mnewlib.
+    You may also build docs via "make -j1 dvi" in "lib[cm]/lib[cm].dvi".
+
+Legal and support notes:
+
+    This source code is distributed primarily for reference purposes;
+    while we have provided a framework which allows you to build it, the
+    generated binary images may not exactly match what Tilera distributes
+    as part of our MDE product.  Because of this, Tilera cannot guarantee
+    its correct operation, and to the extent any support is provided for
+    problems encountered with this code it will be on a best-effort basis.
+
+    Interfaces within the hypervisor, between the hypervisor and Linux, or
+    between the hypervisor and Tilera's application programming libraries
+    (such as gxio), are not committed product features and Tilera
+    may change or eliminate any or all of them in any future MDE update;
+    you rely upon them at your peril.
+
+    References within this source code to potential future work or
+    planned features are speculative, and Tilera explicitly disclaims
+    any commitment to ever perform such work or deliver those features.

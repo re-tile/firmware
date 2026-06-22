@@ -1,0 +1,75 @@
+//
+// Copyright 2014 Tilera Corporation. All Rights Reserved.
+//
+//   The source code contained or described herein and all documents
+//   related to the source code ("Material") are owned by Tilera
+//   Corporation or its suppliers or licensors.  Title to the Material
+//   remains with Tilera Corporation or its suppliers and licensors. The
+//   software is licensed under the Tilera MDE License.
+//
+//   Unless otherwise agreed by Tilera in writing, you may not remove or
+//   alter this notice or any other notice embedded in Materials by Tilera
+//   or Tilera's suppliers or licensors in any way.
+//
+
+// Various parameters needed by the generator
+env prefix gxio_test
+env hvarg iorpc_test_state_t* ts
+env hvarg int svc_dom
+env allinclude hv/drv_test_intf.h
+env hvinclude drivers/test/iorpc_test.h
+env userinclude gxio/test.h
+
+// Write a value to one of the HV 'virtual registers'.
+code = 0x1100
+int write_reg(OFFSET reg, ulong value);
+
+// Read a value from one of the HV 'virtual registers'.
+read
+int read_reg(OFFSET reg, ulong* value);
+
+// Reset all the registers to zero.
+int reset_regs();
+
+// Read back all of the registers.
+read
+int read_all_regs(struct test_iorpc_regs* regs_out);
+
+// Map a 64kB aligned buffer.
+int map_large_buffer(MEM_BUFFER(ALIGN_64KB) buf, uint slot);
+
+// Map a 4kB aligned buffer.
+int map_small_buffer(MEM_BUFFER(ALIGN_4KB) buf, uint slot);
+
+// Map a self-size aligned buffer.
+int map_self_size_buffer(MEM_BUFFER(ALIGN_SELF_SIZE) buf, uint slot);
+
+// Map an arbitrarily aligned buffer.
+int map_buffer(MEM_BUFFER() buf, uint slot);
+
+// Read back the properties of the last buffer passed to the test driver.
+read
+int read_buffer_params(OFFSET slot, uint64_t* pa, size_t* size, 
+                       struct iorpc_mem_attr* attr);
+
+// Set the large data array.
+int write_data_array(struct test_data_array data);
+
+// Get the large data array.
+read
+int read_data_array(struct test_data_array* data_out);
+
+// Set a sub-region of the large data array.
+int write_data_array_segment(BLOB data);
+
+// Set a sub-region of the large data array, with offset.
+int write_data_array_segment_ext(OFFSET offset, BLOB data);
+
+// Read back a sub-region of the large data array.
+read
+int read_data_array_segment(BLOB* data);
+
+// Read back a sub-region of the large data array, with offset and limit.
+read
+int read_data_array_segment_ext(OFFSET offset, size_t* actually_read,
+                                BLOB* data);
